@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Discogs Inventory</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1a1a2e; background: #f5f5f5; }
+
+    /* ── Top bar ── */
+    .topbar { background: #1a1a2e; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .topbar h1 { font-size: 17px; font-weight: 700; }
+    .topbar a { color: #90a4ae; font-size: 13px; text-decoration: none; }
+    .topbar a:hover { color: #fff; }
+
+    /* ── Controls ── */
+    .controls { background: #fff; border-bottom: 1px solid #ddd; padding: 10px 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .controls label { font-size: 12px; color: #666; font-weight: 500; }
+    .controls input[type=text] { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 14px; width: 160px; outline: none; }
+    .controls input[type=text]:focus { border-color: #1565c0; }
+    .controls select { border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; font-size: 13px; background: #fff; outline: none; }
+    .sep { width: 1px; height: 24px; background: #e0e0e0; margin: 0 2px; }
+    .btn { background: #1565c0; color: #fff; border: none; border-radius: 4px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+    .btn:hover { background: #0d47a1; }
+    .btn.btn-success { background: #2e7d32; }
+    .btn.btn-success:hover { background: #1b5e20; }
+    .btn.btn-danger { background: #c62828; }
+    .btn.btn-danger:hover { background: #b71c1c; }
+    .btn.btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn.btn-icon { padding: 4px 7px; font-size: 13px; border-radius: 3px; }
+    .ml-auto { margin-left: auto; }
+
+    /* ── Bulk toolbar ── */
+    #bulk-bar { background: #e8eaf6; border-bottom: 1px solid #c5cae9; padding: 8px 20px;
+                display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+    #bulk-bar.visible { display: flex; }
+    #bulk-count { font-weight: 600; font-size: 13px; color: #283593; }
+
+    /* ── Info bar ── */
+    .infobar { padding: 7px 20px; font-size: 13px; color: #555; background: #fafafa; border-bottom: 1px solid #eee; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    thead th { background: #f0f0f5; text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
+               color: #444; border-bottom: 2px solid #ddd; white-space: nowrap; }
+    td { padding: 8px 10px; border-bottom: 1px solid #efefef; vertical-align: middle; }
+    tr:hover td { background: #fafafe; }
+    tr.selected td { background: #e8eaf6; }
+
+    /* ── Checkbox ── */
+    input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #1565c0; }
+    .col-check { width: 36px; }
+    .col-thumb { width: 58px; }
+    .col-actions { width: 80px; white-space: nowrap; }
+
+    /* ── Thumbnail ── */
+    .thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 3px; display: block; }
+    .thumb-ph { width: 50px; height: 50px; background: #e8e8e8; border-radius: 3px; display: flex;
+                align-items: center; justify-content: center; font-size: 22px; color: #ccc; }
+
+    /* ── Release info ── */
+    .r-artist { font-weight: 600; }
+    .r-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .r-link { font-size: 12px; color: #1565c0; text-decoration: none; }
+    .r-link:hover { text-decoration: underline; }
+
+    /* ── Condition badge ── */
+    .cond { display: inline-block; padding: 2px 5px; border-radius: 3px; font-size: 11px; font-weight: 700;
+            color: #fff; white-space: nowrap; line-height: 1.6; }
+    .cond-row { display: flex; flex-direction: column; gap: 3px; }
+    .cond-label { font-size: 11px; color: #aaa; }
+
+    /* ── Price ── */
+    .price { font-weight: 700; white-space: nowrap; font-size: 14px; }
+    .offers { font-size: 11px; color: #1565c0; }
+
+    /* ── Status pill ── */
+    .status-pill { display: inline-block; font-size: 11px; padding: 1px 5px; border-radius: 10px;
+                   border: 1px solid #ccc; color: #666; margin-top: 2px; }
+
+    /* ── Pagination ── */
+    .pagination { padding: 14px 20px; display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
+    .pagination button { border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: 5px 10px;
+                         font-size: 13px; cursor: pointer; min-width: 34px; }
+    .pagination button:hover:not(:disabled) { background: #e8eaf6; }
+    .pagination button.active { background: #1565c0; color: #fff; border-color: #1565c0; font-weight: 700; }
+    .pagination button:disabled { opacity: .35; cursor: default; }
+
+    /* ── States ── */
+    .state { text-align: center; padding: 70px 20px; color: #999; font-size: 15px; }
+    .state.error { color: #c62828; }
+
+    /* ── Modal ── */
+    #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+                     z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+    #modal-overlay.open { display: flex; }
+    .modal { background: #fff; border-radius: 6px; width: 100%; max-width: 560px; max-height: 90vh;
+             display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
+    .modal-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
+    .modal-header h2 { font-size: 16px; flex: 1; }
+    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; line-height: 1; padding: 0 4px; }
+    .modal-close:hover { color: #333; }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
+
+    /* ── Form ── */
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .form-row input[type=text], .form-row input[type=number], .form-row select, .form-row textarea {
+      width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 7px 10px; font-size: 14px; outline: none; font-family: inherit; }
+    .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: #1565c0; }
+    .form-row textarea { resize: vertical; min-height: 70px; }
+    .form-hint { font-size: 11px; color: #999; margin-top: 3px; }
+    .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-check { display: flex; align-items: center; gap: 8px; }
+    .form-check input { width: auto; }
+    .form-section { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase;
+                    letter-spacing: .5px; margin: 16px 0 10px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
+    .release-info { background: #f5f5f5; border-radius: 4px; padding: 8px 12px; font-size: 13px;
+                    margin-bottom: 14px; color: #444; }
+
+    /* ── Toasts ── */
+    #toasts { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+    .toast { background: #333; color: #fff; padding: 10px 16px; border-radius: 5px; font-size: 13px;
+             opacity: 0; transform: translateX(20px); transition: all .25s; max-width: 320px; }
+    .toast.show { opacity: 1; transform: translateX(0); }
+    .toast.toast-success { background: #2e7d32; }
+    .toast.toast-error { background: #c62828; }
+    .toast.toast-info { background: #1565c0; }
+
+    /* ── Progress bar for bulk ops ── */
+    #progress-bar { display: none; background: #e3f2fd; border-bottom: 1px solid #90caf9; padding: 8px 20px; font-size: 13px; color: #1565c0; }
+    #progress-bar.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Discogs Inventory</h1>
+  <a href="/">← Swagger UI</a>
+</div>
+
+<div class="controls">
+  <label>Username</label>
+  <input type="text" id="username" placeholder="e.g. 360vinyl">
+
+  <div class="sep"></div>
+
+  <label>Status</label>
+  <select id="status" onchange="load(1)">
+    <option value="For Sale" selected>For Sale</option>
+    <option value="">All</option>
+    <option value="Draft">Draft</option>
+    <option value="Sold">Sold</option>
+    <option value="Expired">Expired</option>
+    <option value="Suspended">Suspended</option>
+  </select>
+
+  <div class="sep"></div>
+
+  <label>Sort</label>
+  <select id="sort" onchange="load(1)">
+    <option value="listed">Listed</option>
+    <option value="artist">Artist</option>
+    <option value="price">Price</option>
+    <option value="item">Item</option>
+    <option value="label">Label</option>
+    <option value="catno">Cat#</option>
+    <option value="status">Status</option>
+    <option value="location">Location</option>
+  </select>
+  <select id="sort_order" onchange="load(1)">
+    <option value="desc">↓ Desc</option>
+    <option value="asc">↑ Asc</option>
+  </select>
+
+  <div class="sep"></div>
+
+  <label>Per page</label>
+  <select id="per_page" onchange="load(1)">
+    <option value="25">25</option>
+    <option value="50" selected>50</option>
+    <option value="100">100</option>
+  </select>
+
+  <button class="btn" onclick="load(1)">Load</button>
+  <button class="btn btn-success ml-auto" onclick="openModal('create')">+ New Listing</button>
+</div>
+
+<div id="bulk-bar">
+  <span id="bulk-count"></span>
+  <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete selected</button>
+  <button class="btn btn-sm" onclick="bulkSetStatus('For Sale')">→ For Sale</button>
+  <button class="btn btn-sm" onclick="bulkSetStatus('Draft')">→ Draft</button>
+  <button class="btn btn-sm" style="margin-left:auto" onclick="clearSelection()">✕ Clear</button>
+</div>
+
+<div id="progress-bar"></div>
+
+<div id="root">
+  <div class="state">Enter a Discogs username and click Load.</div>
+</div>
+
+<!-- ── Modal ─────────────────────────────────────────────────────────────── -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">New Listing</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-release-info" class="release-info" style="display:none"></div>
+      <form id="listing-form" onsubmit="return false">
+        <input type="hidden" name="listing_id">
+        <input type="hidden" name="mode">
+
+        <div class="form-row" id="field-release-id">
+          <label>Release ID <span style="color:#c62828">*</span></label>
+          <input type="text" name="release_id" placeholder="e.g. 249504">
+          <div class="form-hint">Find it in the Discogs release URL: discogs.com/release/<strong>249504</strong></div>
+        </div>
+
+        <div class="form-section">Grading</div>
+        <div class="form-2col">
+          <div class="form-row">
+            <label>Media Condition <span style="color:#c62828">*</span></label>
+            <select name="condition">
+              <option value="">— select —</option>
+              <option>Mint (M)</option>
+              <option>Near Mint (NM or M-)</option>
+              <option>Very Good Plus (VG+)</option>
+              <option>Very Good (VG)</option>
+              <option>Good Plus (G+)</option>
+              <option>Good (G)</option>
+              <option>Fair (F)</option>
+              <option>Poor (P)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Sleeve Condition</label>
+            <select name="sleeve_condition">
+              <option value="">— not graded —</option>
+              <option>Mint (M)</option>
+              <option>Near Mint (NM or M-)</option>
+              <option>Very Good Plus (VG+)</option>
+              <option>Very Good (VG)</option>
+              <option>Good Plus (G+)</option>
+              <option>Good (G)</option>
+              <option>Fair (F)</option>
+              <option>Poor (P)</option>
+              <option>Generic</option>
+              <option>Not Graded</option>
+              <option>No Cover</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-section">Sale</div>
+        <div class="form-2col">
+          <div class="form-row">
+            <label>Price <span style="color:#c62828">*</span></label>
+            <input type="text" name="price" placeholder="9.99">
+          </div>
+          <div class="form-row">
+            <label>Status <span style="color:#c62828">*</span></label>
+            <select name="status">
+              <option value="For Sale">For Sale</option>
+              <option value="Draft">Draft</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-check">
+            <input type="checkbox" name="allow_offers" id="allow_offers">
+            <label for="allow_offers" style="display:inline;font-weight:400;margin:0">Allow offers</label>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label>Comments <span style="color:#888;font-weight:400">(public — shown to buyers)</span></label>
+          <textarea name="comments" placeholder="Condition notes, pressing info…"></textarea>
+        </div>
+
+        <div class="form-section">Seller-only fields</div>
+        <div class="form-2col">
+          <div class="form-row">
+            <label>Location</label>
+            <input type="text" name="location" placeholder="Shelf A-3">
+          </div>
+          <div class="form-row">
+            <label>Private Notes</label>
+            <input type="text" name="external_id" placeholder="Internal reference">
+          </div>
+        </div>
+        <div class="form-2col">
+          <div class="form-row">
+            <label>Weight (g)</label>
+            <input type="text" name="weight" placeholder="auto or e.g. 200">
+          </div>
+          <div class="form-row">
+            <label>Counts As</label>
+            <input type="text" name="format_quantity" placeholder="auto or 1">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" style="background:#757575" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-success" id="modal-save-btn" onclick="submitModal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+// ── Constants ───────────────────────────────────────────────────────────────
+const COND_COLOR = {
+  'M': '#1b5e20', 'NM or M-': '#2e7d32', 'VG+': '#558b2f',
+  'VG': '#f57f17', 'G+': '#e65100', 'G': '#bf360c', 'F': '#b71c1c', 'P': '#6a1b9a',
+};
+
+// Extract short abbreviation from full condition string for badge display.
+// "Very Good Plus (VG+)" → "VG+",  "VG+" → "VG+"
+function condShort(s) {
+  if (!s) return '';
+  const m = String(s).match(/\(([^)]+)\)$/);
+  return m ? m[1] : s;
+}
+
+// Ensure condition is the full form the API accepts for writes.
+// "VG+" → "Very Good Plus (VG+)",  "Very Good Plus (VG+)" → as-is
+const FULL_CONDITIONS = [
+  'Mint (M)', 'Near Mint (NM or M-)', 'Very Good Plus (VG+)', 'Very Good (VG)',
+  'Good Plus (G+)', 'Good (G)', 'Fair (F)', 'Poor (P)',
+  'Generic', 'Not Graded', 'No Cover',
+];
+function condFull(s) {
+  if (!s) return '';
+  if (FULL_CONDITIONS.includes(s)) return s;
+  // Short form → find full form by matching abbreviation inside parens
+  return FULL_CONDITIONS.find(c => condShort(c) === s) ?? s;
+}
+
+function condBadge(c) {
+  if (!c) return '';
+  const short = condShort(c) || c;
+  const bg = COND_COLOR[short] ?? '#757575';
+  return `<span class="cond" style="background:${bg}" title="${esc(c)}">${esc(short)}</span>`;
+}
+
+// ── State ───────────────────────────────────────────────────────────────────
+let _listings = [];        // current page
+let _selected = new Set(); // selected listing IDs
+let _pagination = {};
+let _currentPage = 1;
+
+// ── Utils ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function fmtPrice(p) { return p?.value ? `${esc(p.currency)} ${Number(p.value).toFixed(2)}` : '—'; }
+function fmtDate(iso) { return iso ? iso.slice(0, 10) : ''; }
+function parseNumAuto(v) {
+  if (!v || v.trim() === '') return undefined;
+  if (v.trim().toLowerCase() === 'auto') return 'auto';
+  const n = parseFloat(v);
+  return isNaN(n) ? undefined : n;
+}
+
+// ── Toast ───────────────────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+// ── API ──────────────────────────────────────────────────────────────────────
+async function apiDelete(id) {
+  const r = await fetch(`/marketplace/listings/${id}`, { method: 'DELETE' });
+  if (!r.ok && r.status !== 204) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.message || r.statusText);
+  }
+}
+
+async function apiEdit(id, body) {
+  const r = await fetch(`/marketplace/listings/${id}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok && r.status !== 204) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.message || r.statusText);
+  }
+}
+
+async function apiCreate(body) {
+  const r = await fetch('/marketplace/listings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.message || r.statusText);
+  return data;
+}
+
+// ── Selection ────────────────────────────────────────────────────────────────
+function toggleSelect(id, checked) {
+  if (checked) _selected.add(id); else _selected.delete(id);
+  const row = document.getElementById(`row-${id}`);
+  if (row) row.classList.toggle('selected', checked);
+  updateBulkBar();
+}
+
+function toggleSelectAll(checked) {
+  _listings.forEach(l => {
+    _selected[checked ? 'add' : 'delete'](l.id);
+    const row = document.getElementById(`row-${l.id}`);
+    if (row) row.classList.toggle('selected', checked);
+    const cb = document.getElementById(`check-${l.id}`);
+    if (cb) cb.checked = checked;
+  });
+  updateBulkBar();
+}
+
+function clearSelection() {
+  _selected.clear();
+  document.querySelectorAll('input[id^=check-]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('tr.selected').forEach(r => r.classList.remove('selected'));
+  const checkAll = document.getElementById('check-all');
+  if (checkAll) checkAll.checked = false;
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const n = _selected.size;
+  const bar = document.getElementById('bulk-bar');
+  bar.classList.toggle('visible', n > 0);
+  document.getElementById('bulk-count').textContent = `${n} listing${n !== 1 ? 's' : ''} selected`;
+}
+
+// ── Progress ─────────────────────────────────────────────────────────────────
+function setProgress(msg) {
+  const el = document.getElementById('progress-bar');
+  if (msg) { el.textContent = msg; el.classList.add('visible'); }
+  else el.classList.remove('visible');
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderThumb(url, title) {
+  if (url) return `<img class="thumb" src="${esc(url)}" alt="${esc(title)}" loading="lazy"
+    onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb-ph',textContent:'♪'}))">`;
+  return `<div class="thumb-ph">♪</div>`;
+}
+
+function renderRow(item) {
+  const rel = item.release ?? {};
+  const artist = rel.artist ?? '';
+  const title  = rel.title ?? rel.description ?? '';
+  const meta   = [rel.format, rel.catalog_number, rel.year].filter(Boolean).join(' · ');
+  const listingUrl = item.uri ?? `https://www.discogs.com/sell/item/${item.id}`;
+  const releaseUrl = rel.id ? `https://www.discogs.com/release/${rel.id}` : null;
+  const isSelected = _selected.has(item.id);
+
+  const condBlock = `<div class="cond-row">
+    <div><span class="cond-label">media&nbsp;</span>${condBadge(item.condition)}</div>
+    ${item.sleeve_condition ? `<div><span class="cond-label">sleeve</span> ${condBadge(item.sleeve_condition)}</div>` : ''}
+  </div>`;
+
+  const statusPill = (item.status && item.status !== 'For Sale')
+    ? `<span class="status-pill">${esc(item.status)}</span>` : '';
+
+  const ownerMeta = [
+    item.location && `📦 ${esc(item.location)}`,
+    item.quantity > 1 && `qty: ${item.quantity}`,
+  ].filter(Boolean).map(s => `<div class="r-meta">${s}</div>`).join('');
+
+  return `<tr id="row-${item.id}" class="${isSelected ? 'selected' : ''}">
+    <td class="col-check">
+      <input type="checkbox" id="check-${item.id}" ${isSelected ? 'checked' : ''}
+        onchange="toggleSelect(${item.id}, this.checked)">
+    </td>
+    <td class="col-thumb">${renderThumb(rel.thumbnail, title)}</td>
+    <td>
+      <div>
+        ${artist ? `<span class="r-artist">${esc(artist)}</span> – ` : ''}
+        <span>${esc(title)}</span>
+      </div>
+      ${meta ? `<div class="r-meta">${esc(meta)}</div>` : ''}
+      ${ownerMeta}
+      <div style="margin-top:3px">
+        <a class="r-link" href="${listingUrl}" target="_blank">#${item.id}</a>
+        ${releaseUrl ? `&nbsp;·&nbsp;<a class="r-link" href="${releaseUrl}" target="_blank">release</a>` : ''}
+        ${statusPill}
+      </div>
+    </td>
+    <td>${condBlock}</td>
+    <td>
+      <div class="price">${fmtPrice(item.price)}</div>
+      ${item.allow_offers ? '<div class="offers">offers OK</div>' : ''}
+    </td>
+    <td style="white-space:nowrap;color:#555">${esc(item.ships_from ?? '')}</td>
+    <td style="color:#888;white-space:nowrap">${fmtDate(item.posted)}</td>
+    <td class="col-actions">
+      <button class="btn btn-icon" title="Edit" onclick="openModal('edit', ${item.id})">✏</button>
+      <button class="btn btn-icon btn-danger" title="Delete" onclick="deleteListing(${item.id})">🗑</button>
+    </td>
+  </tr>`;
+}
+
+function rerenderTbody() {
+  const tbody = document.querySelector('#root table tbody');
+  if (tbody) tbody.innerHTML = _listings.map(renderRow).join('');
+}
+
+function renderPagination(pag, page) {
+  const total = pag.pages ?? 1;
+  if (total <= 1) return '';
+  const parts = [];
+  parts.push(`<button onclick="load(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
+  let lo = Math.max(1, page-3), hi = Math.min(total, lo+6);
+  if (hi-lo < 6) lo = Math.max(1, hi-6);
+  if (lo > 1) { parts.push(`<button onclick="load(1)">1</button>`); if (lo>2) parts.push(`<button disabled>…</button>`); }
+  for (let p = lo; p <= hi; p++) parts.push(`<button class="${p===page?'active':''}" onclick="load(${p})">${p}</button>`);
+  if (hi < total) { if (hi<total-1) parts.push(`<button disabled>…</button>`); parts.push(`<button onclick="load(${total})">${total}</button>`); }
+  parts.push(`<button onclick="load(${page+1})" ${page>=total?'disabled':''}>›</button>`);
+  return `<div class="pagination">${parts.join('')}</div>`;
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────────
+async function load(page) {
+  const username = document.getElementById('username').value.trim();
+  if (!username) { alert('Enter a username.'); return; }
+
+  const status    = document.getElementById('status').value;
+  const sort      = document.getElementById('sort').value;
+  const sortOrder = document.getElementById('sort_order').value;
+  const perPage   = document.getElementById('per_page').value;
+
+  const qs = new URLSearchParams({ user: username, status, sort, sort_order: sortOrder, per_page: perPage, page });
+  history.replaceState(null, '', '?' + qs);
+
+  const apiQs = new URLSearchParams({ sort, sort_order: sortOrder, per_page: perPage, page });
+  if (status) apiQs.set('status', status);
+
+  document.getElementById('root').innerHTML = '<div class="state">Loading…</div>';
+  _listings = [];
+  clearSelection();
+
+  try {
+    const resp = await fetch(`/users/${encodeURIComponent(username)}/inventory?${apiQs}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ message: resp.statusText }));
+      document.getElementById('root').innerHTML = `<div class="state error">Error ${resp.status}: ${esc(err.message)}</div>`;
+      return;
+    }
+    const data = await resp.json();
+    _pagination  = data.pagination ?? {};
+    _listings    = data.listings ?? [];
+    _currentPage = Number(_pagination.page ?? page);
+
+    const total = Number(_pagination.items ?? _listings.length);
+    const perP  = Number(perPage);
+    const from  = (_currentPage - 1) * perP + 1;
+    const to    = Math.min(_currentPage * perP, total);
+    const info  = total > 0 ? `Showing ${from}–${to} of ${total} listings` : 'No listings found';
+
+    if (!_listings.length) {
+      document.getElementById('root').innerHTML = `<div class="infobar">${info}</div><div class="state">No listings found.</div>`;
+      return;
+    }
+
+    document.getElementById('root').innerHTML =
+      `<div class="infobar">${info}</div>
+       <div class="table-wrap"><table>
+         <thead><tr>
+           <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleSelectAll(this.checked)"></th>
+           <th class="col-thumb"></th>
+           <th>Release</th>
+           <th>Condition</th>
+           <th>Price</th>
+           <th>Ships from</th>
+           <th>Listed</th>
+           <th></th>
+         </tr></thead>
+         <tbody>${_listings.map(renderRow).join('')}</tbody>
+       </table></div>` +
+      renderPagination(_pagination, _currentPage);
+  } catch(e) {
+    document.getElementById('root').innerHTML = `<div class="state error">Network error: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deleteListing(id) {
+  const item = _listings.find(l => l.id === id);
+  const label = item ? `#${id}` : `#${id}`;
+  if (!confirm(`Permanently delete listing ${label}?\nThis cannot be undone.`)) return;
+  try {
+    await apiDelete(id);
+    _listings = _listings.filter(l => l.id !== id);
+    _selected.delete(id);
+    updateBulkBar();
+    rerenderTbody();
+    toast(`Listing #${id} deleted`, 'success');
+    if (_listings.length === 0) load(Math.max(1, _currentPage - 1));
+  } catch(e) {
+    toast(`Delete failed: ${e.message}`, 'error');
+  }
+}
+
+// ── Bulk delete ───────────────────────────────────────────────────────────────
+async function bulkDelete() {
+  const ids = [..._selected];
+  if (!ids.length) return;
+  if (!confirm(`Permanently delete ${ids.length} listing${ids.length > 1 ? 's' : ''}?\nThis cannot be undone.`)) return;
+
+  let done = 0, failed = 0;
+  for (const id of ids) {
+    setProgress(`Deleting… ${done + failed + 1} / ${ids.length}`);
+    try { await apiDelete(id); _listings = _listings.filter(l => l.id !== id); _selected.delete(id); done++; }
+    catch { failed++; }
+  }
+  setProgress(null);
+  updateBulkBar();
+  rerenderTbody();
+  if (done)   toast(`Deleted ${done} listing${done > 1 ? 's' : ''}`, 'success');
+  if (failed) toast(`${failed} deletion${failed > 1 ? 's' : ''} failed`, 'error');
+  if (_listings.length === 0) load(Math.max(1, _currentPage - 1));
+}
+
+// ── Bulk status change ────────────────────────────────────────────────────────
+async function bulkSetStatus(status) {
+  const ids = [..._selected];
+  if (!ids.length) return;
+  if (!confirm(`Set ${ids.length} listing${ids.length > 1 ? 's' : ''} to "${status}"?`)) return;
+
+  let done = 0, failed = 0;
+  for (const id of ids) {
+    const item = _listings.find(l => l.id === id);
+    if (!item?.release?.id) { failed++; continue; }
+    setProgress(`Updating… ${done + failed + 1} / ${ids.length}`);
+    try {
+      await apiEdit(id, {
+        release_id: item.release.id,
+        condition:  condFull(item.condition),
+        price:      item.price?.value ?? 0,
+        status,
+      });
+      item.status = status;
+      done++;
+    } catch { failed++; }
+  }
+  setProgress(null);
+  rerenderTbody();
+  if (done)   toast(`Updated ${done} listing${done > 1 ? 's' : ''} → "${status}"`, 'success');
+  if (failed) toast(`${failed} update${failed > 1 ? 's' : ''} failed`, 'error');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+function fv(name) { return document.querySelector(`#listing-form [name="${name}"]`); }
+
+function openModal(mode, listingId = null) {
+  const form = document.getElementById('listing-form');
+  const saveBtn = document.getElementById('modal-save-btn');
+  saveBtn.disabled = false;
+  saveBtn.textContent = 'Save';
+
+  form.querySelector('[name=mode]').value = mode;
+  form.querySelector('[name=listing_id]').value = listingId ?? '';
+
+  const releaseField = document.getElementById('field-release-id');
+  const releaseInfo  = document.getElementById('modal-release-info');
+
+  if (mode === 'create') {
+    document.getElementById('modal-title').textContent = 'New Listing';
+    releaseField.style.display = '';
+    releaseInfo.style.display  = 'none';
+    form.reset();
+    fv('status').value = 'For Sale';
+
+  } else {
+    const item = _listings.find(l => l.id === listingId);
+    const rel  = item?.release ?? {};
+    document.getElementById('modal-title').textContent = `Edit Listing #${listingId}`;
+    releaseField.style.display = 'none';
+    releaseInfo.style.display  = '';
+    releaseInfo.textContent = [rel.artist, rel.title, rel.format, rel.year].filter(Boolean).join(' — ');
+
+    form.reset();
+    fv('release_id').value      = rel.id ?? '';
+    fv('condition').value       = condFull(item?.condition ?? '');
+    fv('sleeve_condition').value = condFull(item?.sleeve_condition ?? '');
+    fv('price').value           = item?.price?.value ?? '';
+    fv('status').value          = item?.status ?? 'For Sale';
+    fv('allow_offers').checked  = item?.allow_offers ?? false;
+    fv('comments').value        = item?.comments ?? '';
+    fv('location').value        = item?.location ?? '';
+    fv('external_id').value     = item?.external_id ?? '';
+    fv('weight').value          = item?.weight != null ? String(item.weight) : '';
+    fv('format_quantity').value = item?.format_quantity != null ? String(item.format_quantity) : '';
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+  (mode === 'create' ? fv('release_id') : fv('price')).focus();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+async function submitModal() {
+  const form    = document.getElementById('listing-form');
+  const mode    = fv('mode').value;
+  const id      = parseInt(fv('listing_id').value);
+  const saveBtn = document.getElementById('modal-save-btn');
+
+  const releaseId = parseInt(fv('release_id').value);
+  const condition = fv('condition').value;
+  const price     = parseFloat(fv('price').value);
+  const status    = fv('status').value;
+
+  if (!condition)      { toast('Select a media condition', 'error'); fv('condition').focus(); return; }
+  if (isNaN(price))    { toast('Enter a valid price', 'error'); fv('price').focus(); return; }
+  if (mode === 'create' && isNaN(releaseId)) { toast('Enter a release ID', 'error'); fv('release_id').focus(); return; }
+
+  const body = {
+    release_id:       mode === 'create' ? releaseId : (_listings.find(l => l.id === id)?.release?.id ?? releaseId),
+    condition,
+    sleeve_condition: fv('sleeve_condition').value || undefined,
+    price,
+    status,
+    allow_offers:     fv('allow_offers').checked,
+    comments:         fv('comments').value || undefined,
+    location:         fv('location').value || undefined,
+    external_id:      fv('external_id').value || undefined,
+    weight:           parseNumAuto(fv('weight').value),
+    format_quantity:  parseNumAuto(fv('format_quantity').value),
+  };
+  Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  try {
+    if (mode === 'edit') {
+      await apiEdit(id, body);
+      // Patch in-memory so we don't need a reload
+      const item = _listings.find(l => l.id === id);
+      if (item) Object.assign(item, {
+        condition:       body.condition,
+        sleeve_condition: body.sleeve_condition ?? '',
+        status:          body.status,
+        allow_offers:    body.allow_offers,
+        comments:        body.comments ?? '',
+        location:        body.location ?? '',
+        external_id:     body.external_id ?? '',
+        weight:          body.weight,
+        format_quantity: body.format_quantity,
+        price:           { ...(item.price ?? {}), value: body.price },
+      });
+      rerenderTbody();
+      toast('Listing saved', 'success');
+    } else {
+      const res = await apiCreate(body);
+      toast(`Created listing #${res.listing_id}`, 'success');
+      load(_currentPage);
+    }
+    closeModal();
+  } catch(e) {
+    toast(`Error: ${e.message}`, 'error');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save';
+  }
+}
+
+// ── Close modal on overlay click ──────────────────────────────────────────────
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeModal();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Restore URL state or auto-load the authenticated user ─────────────────────
+(async function () {
+  const p = new URLSearchParams(location.search);
+  if (p.get('user')) {
+    document.getElementById('username').value    = p.get('user');
+    document.getElementById('status').value      = p.get('status') ?? 'For Sale';
+    document.getElementById('sort').value        = p.get('sort') ?? 'listed';
+    document.getElementById('sort_order').value  = p.get('sort_order') ?? 'desc';
+    document.getElementById('per_page').value    = p.get('per_page') ?? '50';
+    load(parseInt(p.get('page') ?? '1', 10));
+    return;
+  }
+  // No URL params — check if OAuth is active and auto-load that user's inventory.
+  try {
+    const data = await fetch('/oauth/status').then(r => r.json());
+    if (data.authorized && data.username) {
+      document.getElementById('username').value = data.username;
+      load(1);
+    }
+  } catch { /* ignore, user can enter username manually */ }
+})();
+
+document.getElementById('username').addEventListener('keydown', e => { if (e.key === 'Enter') load(1); });
+</script>
+</body>
+</html>
