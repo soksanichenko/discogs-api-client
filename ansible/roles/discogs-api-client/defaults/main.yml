@@ -1,0 +1,11 @@
+---
+discogs_api_client_container_name: 'discogs-api-client'
+discogs_api_client_port: 8777
+discogs_api_client_data_path: "{{ docker_volumes_directory }}/discogs-api-client"
+discogs_api_client_consumer_key: ''
+discogs_api_client_consumer_secret: ''
+discogs_api_client_base_url: ''
+discogs_api_client_nginx_location: '/discogs'
+discogs_api_client_nginx_custom_locations_path: "{{ nginx_custom_locations_path }}"
+discogs_api_client_upstream_name: 'discogs_api_client_upstream'
+...

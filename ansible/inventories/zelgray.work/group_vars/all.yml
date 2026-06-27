@@ -1,0 +1,18 @@
+---
+infisical_project_id: "286db07f-4dba-4ca9-a515-f017d77b8bf1"
+infisical_path: "/hosts/zelgray-work"
+
+docker_network: "active"
+docker_volumes_directory: "/opt/docker"
+nginx_docker_container_name: "nginx-server"
+nginx_confd_path: "{{ docker_volumes_directory }}/nginx/conf.d"
+nginx_locations_path: "{{ nginx_confd_path }}/locations"
+nginx_upstream_path: "{{ nginx_confd_path }}/upstream"
+nginx_custom_locations_path: "{{ nginx_confd_path }}/custom-locations"
+
+discogs_api_client_nginx_custom_locations_path: "{{ nginx_confd_path }}/zelgray.work-custom-locations"
+
+discogs_api_client_consumer_key: "{{ infisical_secrets.secrets['discogs-consumer-key'] }}"
+discogs_api_client_consumer_secret: "{{ infisical_secrets.secrets['discogs-consumer-secret'] }}"
+discogs_api_client_base_url: "https://zelgray.work/discogs"
+...

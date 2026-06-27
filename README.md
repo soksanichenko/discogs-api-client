@@ -1,42 +1,65 @@
 # discogs-api-client
 
-Unofficial OpenAPI 3.1.0 spec for the Discogs API v2.0, with a local Swagger UI proxy for interactive testing.
+Unofficial OpenAPI 3.1.0 spec for the Discogs API v2.0, with a local Swagger UI proxy for interactive testing and an inventory management UI.
 
-## What's here
+## Project structure
 
-| File | Purpose |
-|------|---------|
-| `discogs-openapi.yaml` | Full Discogs API spec — Database, Marketplace, Inventory Export/Upload, User Identity, Collection, Wantlist, Lists |
-| `proxy.py` | Local reverse proxy that serves Swagger UI and forwards requests to `api.discogs.com` |
-| `requirements.txt` | Python dependencies |
-
-## Running the proxy
-
-```bash
-pip install -r requirements.txt
-python proxy.py
+```
+discogs-api-client/
+├── sources/
+│   ├── proxy.py               # Starlette proxy: Swagger UI + OAuth 1.0a + API forwarding
+│   ├── discogs-openapi.yaml   # Full Discogs API OpenAPI spec
+│   ├── inventory.html         # Inventory management UI
+│   └── requirements.txt       # App Python dependencies
+├── ansible/
+│   ├── ansible.cfg
+│   ├── inventories/zelgray.work/
+│   └── roles/discogs-api-client/  # Docker build + nginx deploy
+├── requirements.txt           # Ansible/tooling dependencies
+├── requirements.yml           # Ansible collections
+└── install_dependencies.sh    # Installs both requirements files + infisical CLI
 ```
 
-Opens at: `http://localhost:8777/docs`
+## Running locally
+
+```bash
+pip install -r sources/requirements.txt
+python sources/proxy.py
+```
+
+Opens at: `http://localhost:8777/`  
+Inventory UI: `http://localhost:8777/inventory`
 
 ## Authentication
 
-Click **Authorize** in Swagger UI and fill in one of the following:
+### OAuth 1.0a (recommended)
 
-### Personal Access Token (identifies you as a Discogs user)
+Set env vars and visit `/oauth/start`:
 
-Field: `discogsToken`
-Value: `Discogs token=YOUR_TOKEN`
+```bash
+export DISCOGS_CONSUMER_KEY=your_key
+export DISCOGS_CONSUMER_SECRET=your_secret
+python sources/proxy.py
+# then open http://localhost:8777/oauth/start
+```
 
-Get your token: discogs.com → Settings → Developers → Generate Token.
+Once authorized, all proxied requests are signed automatically. The access token is persisted to `.oauth_token.json` (or `$DISCOGS_TOKEN_DIR/.oauth_token.json`).
 
-### Application Consumer Key + Secret (raises rate limit, unlocks image URLs — does not identify a user)
+### Manual auth via Swagger UI
 
-Fill in both fields:
-- `discogsKey` → your Consumer Key
-- `discogsSecret` → your Consumer Secret
+Click **Authorize** and fill in one of:
 
-Register your app: discogs.com → Settings → Developers → Register an Application.
+- `discogsToken` → `Discogs token=YOUR_PERSONAL_ACCESS_TOKEN`
+- `discogsKeySecret` → key + secret pair
+
+## Environment variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `DISCOGS_CONSUMER_KEY` | OAuth app consumer key | _(empty)_ |
+| `DISCOGS_CONSUMER_SECRET` | OAuth app consumer secret | _(empty)_ |
+| `DISCOGS_BASE_URL` | Public base URL of the proxy (used for OAuth callback and Swagger server URL) | `http://localhost:8777` |
+| `DISCOGS_TOKEN_DIR` | Directory where `.oauth_token.json` is stored | same dir as `proxy.py` |
 
 ## Spec coverage
 
@@ -47,23 +70,37 @@ Register your app: discogs.com → Settings → Developers → Register an Appli
 - **User Collection** — Folders, Items, Rating
 - **User Wantlist**
 - **User Lists**
-- **OAuth** — `/oauth/request_token`, `/oauth/access_token` (full OAuth 1.0a flow documented as plain paths)
+- **OAuth** — `/oauth/request_token`, `/oauth/access_token`
 
-## Validation
+## Deployment
+
+Deployed to `zelgray.work` at `/discogs` via Ansible. Runs as a Docker container on the `active` network behind nginx.
+
+```bash
+cd ansible
+ansible-playbook playbooks/discogs-api-client.yml
+```
+
+Requires `INFISICAL_API_URL`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` in the environment.  
+Secrets `discogs-consumer-key` and `discogs-consumer-secret` must exist in Infisical under `/hosts/zelgray-work`.
+
+See [`ansible/roles/discogs-api-client/README.md`](ansible/roles/discogs-api-client/README.md).
+
+## Spec validation
 
 ```bash
 # Structural validation
-python -m openapi_spec_validator discogs-openapi.yaml
+python -m openapi_spec_validator sources/discogs-openapi.yaml
 
 # OWASP API Security Top 10 lint
-~/.npm-global/bin/spectral lint discogs-openapi.yaml \
+spectral lint sources/discogs-openapi.yaml \
   --ruleset https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs
 ```
 
 ## Requirements
 
 - Python 3.9+
-- See `requirements.txt` for pinned versions: httpx, starlette, uvicorn, PyYAML
+- Docker (for deployment)
 
 ## References
 

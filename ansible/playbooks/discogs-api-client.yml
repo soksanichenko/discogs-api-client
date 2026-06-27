@@ -1,0 +1,9 @@
+---
+- name: Deploy discogs-api-client
+  hosts: vds
+  pre_tasks:
+    - name: Load Infisical secrets
+      import_tasks: pre_tasks/infisical.yml
+  roles:
+    - discogs-api-client
+...

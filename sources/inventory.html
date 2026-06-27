@@ -139,7 +139,7 @@
 
 <div class="topbar">
   <h1>Discogs Inventory</h1>
-  <a href="/">← Swagger UI</a>
+  <a id="swagger-link" href="#">← Swagger UI</a>
 </div>
 
 <div class="controls">
@@ -316,6 +316,10 @@
 <div id="toasts"></div>
 
 <script>
+// ── Base URL (works on any subpath) ─────────────────────────────────────────
+const BASE = window.location.pathname.replace(/\/inventory\/?$/, '');
+document.getElementById('swagger-link').href = BASE || '/';
+
 // ── Constants ───────────────────────────────────────────────────────────────
 const COND_COLOR = {
   'M': '#1b5e20', 'NM or M-': '#2e7d32', 'VG+': '#558b2f',
@@ -382,7 +386,7 @@ function toast(msg, type = 'info') {
 
 // ── API ──────────────────────────────────────────────────────────────────────
 async function apiDelete(id) {
-  const r = await fetch(`/marketplace/listings/${id}`, { method: 'DELETE' });
+  const r = await fetch(`${BASE}/marketplace/listings/${id}`, { method: 'DELETE' });
   if (!r.ok && r.status !== 204) {
     const e = await r.json().catch(() => ({}));
     throw new Error(e.message || r.statusText);
@@ -390,7 +394,7 @@ async function apiDelete(id) {
 }
 
 async function apiEdit(id, body) {
-  const r = await fetch(`/marketplace/listings/${id}`, {
+  const r = await fetch(`${BASE}/marketplace/listings/${id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -402,7 +406,7 @@ async function apiEdit(id, body) {
 }
 
 async function apiCreate(body) {
-  const r = await fetch('/marketplace/listings', {
+  const r = await fetch(`${BASE}/marketplace/listings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -556,7 +560,7 @@ async function load(page) {
   clearSelection();
 
   try {
-    const resp = await fetch(`/users/${encodeURIComponent(username)}/inventory?${apiQs}`);
+    const resp = await fetch(`${BASE}/users/${encodeURIComponent(username)}/inventory?${apiQs}`);
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ message: resp.statusText }));
       document.getElementById('root').innerHTML = `<div class="state error">Error ${resp.status}: ${esc(err.message)}</div>`;
@@ -802,7 +806,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
   }
   // No URL params — check if OAuth is active and auto-load that user's inventory.
   try {
-    const data = await fetch('/oauth/status').then(r => r.json());
+    const data = await fetch(`${BASE}/oauth/status`).then(r => r.json());
     if (data.authorized && data.username) {
       document.getElementById('username').value = data.username;
       load(1);

@@ -1,0 +1,3 @@
+upstream {{ discogs_api_client_upstream_name }} {
+    server {{ discogs_api_client_container_name }}:{{ discogs_api_client_port }};
+}

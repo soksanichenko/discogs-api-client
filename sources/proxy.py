@@ -42,7 +42,8 @@ INVENTORY_PATH = Path(__file__).parent / 'inventory.html'
 
 CONSUMER_KEY = os.environ.get('DISCOGS_CONSUMER_KEY', '')
 CONSUMER_SECRET = os.environ.get('DISCOGS_CONSUMER_SECRET', '')
-TOKEN_PATH = Path(__file__).parent / '.oauth_token.json'
+BASE_URL = os.environ.get('DISCOGS_BASE_URL', f'http://localhost:{PORT}')
+TOKEN_PATH = Path(os.environ.get('DISCOGS_TOKEN_DIR', str(Path(__file__).parent))) / '.oauth_token.json'
 
 _pending_tokens: dict[str, str] = {}  # request oauth_token → oauth_token_secret
 
@@ -80,7 +81,7 @@ with SPEC_PATH.open() as _f:
     _spec = yaml.safe_load(_f)
 
 _spec['servers'] = [
-    {'url': f'http://localhost:{PORT}', 'description': 'Local proxy → api.discogs.com'},
+    {'url': BASE_URL, 'description': 'Local proxy → api.discogs.com'},
 ]
 _SPEC_JSON = json.dumps(_spec)
 
@@ -111,7 +112,7 @@ _SWAGGER_HTML = f"""<!DOCTYPE html>
 <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
 <script>
   SwaggerUIBundle({{
-    url: '/openapi.json',
+    url: '{BASE_URL}/openapi.json',
     dom_id: '#swagger-ui',
     presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
     layout: 'BaseLayout',
@@ -119,17 +120,17 @@ _SWAGGER_HTML = f"""<!DOCTYPE html>
     tryItOutEnabled: true,
   }});
 
-  fetch('/oauth/status').then(r => r.json()).then(data => {{
+  fetch('{BASE_URL}/oauth/status').then(r => r.json()).then(data => {{
     const banner = document.getElementById('oauth-banner');
     if (data.authorized) {{
       banner.style.background = '#e8f5e9';
-      banner.innerHTML = '&#10003; OAuth: connected as <strong>' + data.username + '</strong> — requests are signed automatically &nbsp;&middot;&nbsp; <a href="/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="/oauth/revoke">Revoke</a>';
+      banner.innerHTML = '&#10003; OAuth: connected as <strong>' + data.username + '</strong> — requests are signed automatically &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/oauth/revoke">Revoke</a>';
     }} else if (data.configured) {{
       banner.style.background = '#fff3e0';
-      banner.innerHTML = 'OAuth app configured. <a href="/oauth/start">Authorize with Discogs &rarr;</a> &nbsp;&middot;&nbsp; <a href="/inventory">Inventory &rarr;</a>';
+      banner.innerHTML = 'OAuth app configured. <a href="{BASE_URL}/oauth/start">Authorize with Discogs &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a>';
     }} else {{
       banner.style.background = '#f5f5f5';
-      banner.innerHTML = 'Set <code>DISCOGS_CONSUMER_KEY</code> + <code>DISCOGS_CONSUMER_SECRET</code> to enable OAuth, or use Authorize below. &nbsp;&middot;&nbsp; <a href="/inventory">Inventory &rarr;</a>';
+      banner.innerHTML = 'Set <code>DISCOGS_CONSUMER_KEY</code> + <code>DISCOGS_CONSUMER_SECRET</code> to enable OAuth, or use Authorize below. &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a>';
     }}
   }});
 </script>
@@ -137,15 +138,15 @@ _SWAGGER_HTML = f"""<!DOCTYPE html>
 </html>
 """
 
-_SUCCESS_HTML = """<!DOCTYPE html>
+_SUCCESS_HTML = f"""<!DOCTYPE html>
 <html>
 <head><title>Authorized — Discogs</title><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;max-width:560px;margin:80px auto;text-align:center;color:#333">
   <div style="font-size:48px">&#10003;</div>
   <h1 style="color:#2e7d32;margin:8px 0">Connected!</h1>
-  <p>Authorized as <strong>{username}</strong>.<br>
+  <p>Authorized as <strong>{{username}}</strong>.<br>
   All API requests through this proxy are now signed automatically.</p>
-  <a href="/" style="display:inline-block;margin-top:24px;padding:10px 28px;
+  <a href="{BASE_URL}" style="display:inline-block;margin-top:24px;padding:10px 28px;
      background:#1565c0;color:#fff;border-radius:4px;text-decoration:none;font-size:15px">
     Open Swagger UI &rarr;
   </a>
@@ -230,7 +231,7 @@ async def oauth_start(request: Request) -> Response:
             status_code=500,
         )
 
-    callback_url = f'http://localhost:{PORT}/oauth/callback'
+    callback_url = f'{BASE_URL}/oauth/callback'
     client = _oauth1_client(callback_uri=callback_url)
     uri, headers, _ = client.sign('https://api.discogs.com/oauth/request_token', http_method='POST')
     headers['User-Agent'] = 'discogs-proxy/1.0'
