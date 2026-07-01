@@ -74,7 +74,7 @@ OAuth token is persisted as JSON to `TOKEN_PATH` (loaded on startup). In Docker:
 
 **No git clone** — always deploys from local working copy.
 
-**nginx config placement:** location block goes to `discogs_api_client_nginx_custom_locations_path` (default: `nginx_custom_locations_path`). For `zelgray.work` this is overridden to `zelgray.work-custom-locations/` so the location is included only in that server block. The upstream goes to `nginx_upstream_path`.
+**nginx config placement:** location block goes to `discogs_api_client_nginx_custom_locations_path` (default: `nginx_custom_locations_path`). For `zelgray.work` this is overridden to `zelgray.work-custom-locations/` so the location is included only in that server block. The upstream goes to `nginx_custom_upstream_path`.
 
 **Redirect fix:** `location = /discogs` uses `absolute_redirect off` to avoid nginx constructing redirects with its internal port `8443`.
 

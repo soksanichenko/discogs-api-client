@@ -6,9 +6,7 @@ docker_network: "active"
 docker_volumes_directory: "/opt/docker"
 nginx_docker_container_name: "nginx-server"
 nginx_confd_path: "{{ docker_volumes_directory }}/nginx/conf.d"
-nginx_locations_path: "{{ nginx_confd_path }}/locations"
-nginx_upstream_path: "{{ nginx_confd_path }}/upstream"
-nginx_custom_locations_path: "{{ nginx_confd_path }}/custom-locations"
+nginx_custom_upstream_path: "{{ nginx_confd_path }}/custom-upstream"
 
 discogs_api_client_nginx_custom_locations_path: "{{ nginx_confd_path }}/zelgray.work-custom-locations"
 

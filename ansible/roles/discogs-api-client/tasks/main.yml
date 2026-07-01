@@ -69,7 +69,7 @@
 - name: Deploy nginx upstream config
   ansible.builtin.template:
     src: nginx-upstream.conf.j2
-    dest: "{{ nginx_upstream_path }}/discogs-api-client.conf"
+    dest: "{{ nginx_custom_upstream_path }}/discogs-api-client.conf"
     mode: '0644'
   become: yes
   notify: Reload nginx
