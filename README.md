@@ -78,7 +78,7 @@ Deployed to `zelgray.work` at `/discogs` via Ansible. Runs as a Docker container
 
 ```bash
 cd ansible
-ansible-playbook playbooks/discogs-api-client.yml
+ansible-playbook playbooks/deploy.yml
 ```
 
 Requires `INFISICAL_API_URL`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` in the environment.  

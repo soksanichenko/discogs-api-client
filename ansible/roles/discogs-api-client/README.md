@@ -35,7 +35,7 @@ Deploys the discogs-api-client proxy as a Docker container on `zelgray.work`, se
 
 ```bash
 cd ansible
-ansible-playbook playbooks/discogs-api-client.yml
+ansible-playbook playbooks/deploy.yml
 ```
 
 ## Notes

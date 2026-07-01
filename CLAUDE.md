@@ -21,7 +21,7 @@ discogs-api-client/
 │   │       └── group_vars/
 │   │           └── all.yml    # nginx paths, docker vars, Infisical secret refs
 │   ├── playbooks/
-│   │   ├── discogs-api-client.yml   # Main playbook (hosts: vds, Infisical pre_tasks)
+│   │   ├── deploy.yml   # Main playbook (hosts: vds, Infisical pre_tasks)
 │   │   └── pre_tasks/
 │   │       └── infisical.yml        # Login + load secrets from Infisical EU
 │   └── roles/
@@ -102,7 +102,7 @@ Project ID: `286db07f-4dba-4ca9-a515-f017d77b8bf1`, env: `prod`, path: `/hosts/z
 
 ```bash
 cd ansible
-ansible-playbook playbooks/discogs-api-client.yml
+ansible-playbook playbooks/deploy.yml
 ```
 
 Requires env: `INFISICAL_API_URL=https://eu.infisical.com`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`.
