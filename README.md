@@ -6,6 +6,9 @@ Unofficial OpenAPI 3.1.0 spec for the Discogs API v2.0, with a local Swagger UI 
 
 ```
 discogs-api-client/
+├── .github/
+│   ├── dependabot.yml          # Weekly dependency update PRs
+│   └── workflows/lint.yml      # ruff check + format on push/PR
 ├── sources/
 │   ├── proxy.py               # Starlette proxy: Swagger UI + OAuth 1.0a + API forwarding
 │   ├── discogs-openapi.yaml   # Full Discogs API OpenAPI spec
@@ -17,6 +20,8 @@ discogs-api-client/
 │   └── roles/discogs-api-client/  # Docker build + nginx deploy
 ├── requirements.txt           # Ansible/tooling dependencies
 ├── requirements.yml           # Ansible collections
+├── pyproject.toml             # Package metadata + ruff config
+├── .pre-commit-config.yaml    # ruff + ruff-format hooks
 └── install_dependencies.sh    # Installs both requirements files + infisical CLI
 ```
 
@@ -96,6 +101,16 @@ python -m openapi_spec_validator sources/discogs-openapi.yaml
 spectral lint sources/discogs-openapi.yaml \
   --ruleset https://unpkg.com/@stoplight/spectral-owasp-ruleset/dist/ruleset.mjs
 ```
+
+## Linting
+
+```bash
+pip install -r requirements.txt
+pre-commit install
+pre-commit run --all-files
+```
+
+Runs `ruff check` and `ruff format --check` on `sources/`. The same checks run in CI on every push/PR (`.github/workflows/lint.yml`).
 
 ## Requirements
 

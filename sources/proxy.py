@@ -13,6 +13,7 @@ Manual auth still works: click "Authorize" in Swagger UI and fill one of:
   discogsToken     →  Discogs token=YOUR_PERSONAL_ACCESS_TOKEN
   discogsKeySecret →  Discogs key=YOUR_KEY, secret=YOUR_SECRET
 """
+
 import json
 import logging
 import os
@@ -43,7 +44,10 @@ INVENTORY_PATH = Path(__file__).parent / 'inventory.html'
 CONSUMER_KEY = os.environ.get('DISCOGS_CONSUMER_KEY', '')
 CONSUMER_SECRET = os.environ.get('DISCOGS_CONSUMER_SECRET', '')
 BASE_URL = os.environ.get('DISCOGS_BASE_URL', f'http://localhost:{PORT}')
-TOKEN_PATH = Path(os.environ.get('DISCOGS_TOKEN_DIR', str(Path(__file__).parent))) / '.oauth_token.json'
+TOKEN_PATH = (
+    Path(os.environ.get('DISCOGS_TOKEN_DIR', str(Path(__file__).parent)))
+    / '.oauth_token.json'
+)
 
 _pending_tokens: dict[str, str] = {}  # request oauth_token → oauth_token_secret
 
@@ -156,10 +160,19 @@ _SUCCESS_HTML = f"""<!DOCTYPE html>
 # ---------------------------------------------------------------------------
 # Hop-by-hop headers that must not be forwarded
 # ---------------------------------------------------------------------------
-_HOP_BY_HOP = frozenset([
-    'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
-    'te', 'trailers', 'transfer-encoding', 'upgrade', 'content-encoding',
-])
+_HOP_BY_HOP = frozenset(
+    [
+        'connection',
+        'keep-alive',
+        'proxy-authenticate',
+        'proxy-authorization',
+        'te',
+        'trailers',
+        'transfer-encoding',
+        'upgrade',
+        'content-encoding',
+    ]
+)
 
 
 def _oauth1_client(**extra) -> OAuth1Client:
@@ -169,6 +182,7 @@ def _oauth1_client(**extra) -> OAuth1Client:
 # ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
+
 
 async def swagger_ui(request: Request) -> HTMLResponse:
     return HTMLResponse(_SWAGGER_HTML)
@@ -195,8 +209,12 @@ async def oauth_status(request: Request) -> JSONResponse:
         username = _oauth_access.get('username', '')
         if not username:
             username = await _fetch_username()
-        return JSONResponse({'authorized': True, 'configured': True, 'username': username})
-    return JSONResponse({'authorized': False, 'configured': bool(CONSUMER_KEY and CONSUMER_SECRET)})
+        return JSONResponse(
+            {'authorized': True, 'configured': True, 'username': username}
+        )
+    return JSONResponse(
+        {'authorized': False, 'configured': bool(CONSUMER_KEY and CONSUMER_SECRET)}
+    )
 
 
 async def _fetch_username() -> str:
@@ -233,7 +251,9 @@ async def oauth_start(request: Request) -> Response:
 
     callback_url = f'{BASE_URL}/oauth/callback'
     client = _oauth1_client(callback_uri=callback_url)
-    uri, headers, _ = client.sign('https://api.discogs.com/oauth/request_token', http_method='POST')
+    uri, headers, _ = client.sign(
+        'https://api.discogs.com/oauth/request_token', http_method='POST'
+    )
     headers['User-Agent'] = 'discogs-proxy/1.0'
 
     async with httpx.AsyncClient(timeout=15.0) as http:
@@ -251,12 +271,16 @@ async def oauth_start(request: Request) -> Response:
     oauth_token_secret = params.get('oauth_token_secret', '')
 
     if not oauth_token:
-        return HTMLResponse('<h1>Error</h1><p>No oauth_token in Discogs response.</p>', status_code=502)
+        return HTMLResponse(
+            '<h1>Error</h1><p>No oauth_token in Discogs response.</p>', status_code=502
+        )
 
     _pending_tokens[oauth_token] = oauth_token_secret
     logger.info('OAuth: redirecting to Discogs authorize (token=%s…)', oauth_token[:8])
 
-    return RedirectResponse(f'https://www.discogs.com/oauth/authorize?oauth_token={oauth_token}')
+    return RedirectResponse(
+        f'https://www.discogs.com/oauth/authorize?oauth_token={oauth_token}'
+    )
 
 
 async def oauth_callback(request: Request) -> HTMLResponse:
@@ -267,7 +291,10 @@ async def oauth_callback(request: Request) -> HTMLResponse:
     oauth_verifier = request.query_params.get('oauth_verifier', '')
 
     if not oauth_token or not oauth_verifier:
-        return HTMLResponse('<h1>Error</h1><p>Missing oauth_token or oauth_verifier.</p>', status_code=400)
+        return HTMLResponse(
+            '<h1>Error</h1><p>Missing oauth_token or oauth_verifier.</p>',
+            status_code=400,
+        )
 
     oauth_token_secret = _pending_tokens.pop(oauth_token, '')
     if not oauth_token_secret:
@@ -281,7 +308,9 @@ async def oauth_callback(request: Request) -> HTMLResponse:
         resource_owner_secret=oauth_token_secret,
         verifier=oauth_verifier,
     )
-    uri, headers, _ = client.sign('https://api.discogs.com/oauth/access_token', http_method='POST')
+    uri, headers, _ = client.sign(
+        'https://api.discogs.com/oauth/access_token', http_method='POST'
+    )
     headers['User-Agent'] = 'discogs-proxy/1.0'
 
     async with httpx.AsyncClient(timeout=15.0) as http:
@@ -312,10 +341,14 @@ async def proxy(request: Request) -> Response:
     url = f'{DISCOGS_BASE}/{path}'
 
     headers = {
-        k: v for k, v in request.headers.items()
+        k: v
+        for k, v in request.headers.items()
         if k.lower() not in _HOP_BY_HOP | {'host', 'content-length', 'accept-encoding'}
     }
-    headers.setdefault('User-Agent', 'discogs-api-client-proxy/1.0 +https://github.com/you/discogs-api-client')
+    headers.setdefault(
+        'User-Agent',
+        'discogs-api-client-proxy/1.0 +https://github.com/you/discogs-api-client',
+    )
 
     # Auto-sign with OAuth when authorized and no manual Authorization header is present.
     if _oauth_access and 'authorization' not in {k.lower() for k in headers}:
@@ -325,7 +358,9 @@ async def proxy(request: Request) -> Response:
             resource_owner_key=_oauth_access['token'],
             resource_owner_secret=_oauth_access['secret'],
         )
-        _, oauth_headers, _ = oauth_client.sign(sign_url, http_method=request.method.upper())
+        _, oauth_headers, _ = oauth_client.sign(
+            sign_url, http_method=request.method.upper()
+        )
         headers['Authorization'] = oauth_headers['Authorization']
 
     body = await request.body()
@@ -341,7 +376,8 @@ async def proxy(request: Request) -> Response:
         )
 
     resp_headers = {
-        k: v for k, v in resp.headers.items()
+        k: v
+        for k, v in resp.headers.items()
         if k.lower() not in _HOP_BY_HOP | {'content-length'}
     }
 
@@ -352,17 +388,23 @@ async def proxy(request: Request) -> Response:
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = Starlette(routes=[
-    Route('/',                swagger_ui),
-    Route('/docs',            swagger_ui),
-    Route('/openapi.json',    openapi_spec),
-    Route('/inventory',       inventory_page),
-    Route('/oauth/status',    oauth_status),
-    Route('/oauth/start',     oauth_start),
-    Route('/oauth/callback',  oauth_callback),
-    Route('/oauth/revoke',    oauth_revoke),
-    Route('/{path:path}',     proxy, methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD']),
-])
+app = Starlette(
+    routes=[
+        Route('/', swagger_ui),
+        Route('/docs', swagger_ui),
+        Route('/openapi.json', openapi_spec),
+        Route('/inventory', inventory_page),
+        Route('/oauth/status', oauth_status),
+        Route('/oauth/start', oauth_start),
+        Route('/oauth/callback', oauth_callback),
+        Route('/oauth/revoke', oauth_revoke),
+        Route(
+            '/{path:path}',
+            proxy,
+            methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
+        ),
+    ]
+)
 
 app.add_middleware(
     CORSMiddleware,

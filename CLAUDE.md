@@ -8,6 +8,10 @@ Discogs API proxy: serves Swagger UI, forwards requests to `api.discogs.com`, ha
 
 ```
 discogs-api-client/
+├── .github/
+│   ├── dependabot.yml          # Weekly pip + github-actions updates, target-branch master
+│   └── workflows/
+│       └── lint.yml            # ruff check + ruff format --check on sources/ (push, PR to master)
 ├── sources/
 │   ├── proxy.py               # Starlette app — all routes and proxy logic
 │   ├── discogs-openapi.yaml   # OpenAPI 3.1.0 spec for Discogs API v2.0
@@ -35,6 +39,8 @@ discogs-api-client/
 │               └── nginx-upstream.conf.j2
 ├── requirements.txt           # Ansible/tooling: infisicalsdk, ansible-lint, yamllint, pre-commit
 ├── requirements.yml           # Ansible collections: infisical.vault, community.docker
+├── pyproject.toml             # Package metadata + deps; ruff format quote-style = single
+├── .pre-commit-config.yaml    # ruff + ruff-format hooks (sources/)
 └── install_dependencies.sh    # pip install + ansible-galaxy + infisical CLI (DNF)
 ```
 
@@ -123,6 +129,6 @@ Live at: `https://zelgray.work/discogs`
 ## Conventions
 
 - All YAML files start with `---` and end with `...` followed by an empty line.
-- Single quotes for Python string literals.
+- Single quotes for Python string literals — enforced by ruff (`quote-style = "single"` in `pyproject.toml`), run via pre-commit and the `lint.yml` CI workflow.
 - Secrets never in files — always injected via env vars into the container.
 - `inventory.html` derives its API base URL from `window.location.pathname` at runtime (subpath-aware).
