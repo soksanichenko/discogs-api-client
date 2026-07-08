@@ -694,6 +694,9 @@ function onHeaderClick(key, event) {
     if (existing) existing.order = existing.order === 'asc' ? 'desc' : 'asc';
     else _sortChain.push({ key, order: DEFAULT_DESC_KEYS.has(key) ? 'desc' : 'asc' });
     saveSortToStorage();
+    // With filters active, the full dataset is already in memory — re-sort it
+    // in place instead of load()ing, which would silently drop the filters.
+    if (_allListings) { renderFilteredPage(_currentPage); return; }
     applyClientSort();
     rerenderTbody();
     refreshThead();
@@ -708,6 +711,11 @@ function onHeaderClick(key, event) {
   }
   _sortChain = [{ key: _sort, order: _sortOrder }];
   saveSortToStorage();
+
+  if (_allListings) {
+    renderFilteredPage(1);
+    return;
+  }
 
   if (SERVER_SORT_KEYS.has(key)) {
     load(1);
