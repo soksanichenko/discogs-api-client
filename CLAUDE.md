@@ -16,6 +16,7 @@ discogs-api-client/
 │   ├── proxy.py               # Starlette app — all routes and proxy logic
 │   ├── discogs-openapi.yaml   # OpenAPI 3.1.0 spec for Discogs API v2.0
 │   ├── inventory.html         # Single-page inventory management UI
+│   ├── collection.html        # Single-page collection viewer — list items for sale (single/bulk)
 │   └── requirements.txt       # App deps (httpx, starlette, uvicorn, oauthlib, PyYAML, python-dotenv)
 ├── ansible/
 │   ├── ansible.cfg            # inventory = inventories/zelgray.work, roles_path = roles
@@ -56,6 +57,7 @@ discogs-api-client/
 | `GET /docs` | `swagger_ui` | Alias |
 | `GET /openapi.json` | `openapi_spec` | Spec with server URL set to `BASE_URL` |
 | `GET /inventory` | `inventory_page` | Serves `inventory.html` |
+| `GET /collection` | `collection_page` | Serves `collection.html` |
 | `GET /oauth/status` | `oauth_status` | JSON: `{authorized, configured, username}` |
 | `GET /oauth/start` | `oauth_start` | Step 1: redirect to Discogs authorize page |
 | `GET /oauth/callback` | `oauth_callback` | Step 2: exchange verifier for access token |
@@ -131,4 +133,6 @@ Live at: `https://zelgray.work/discogs`
 - All YAML files start with `---` and end with `...` followed by an empty line.
 - Single quotes for Python string literals — enforced by ruff (`quote-style = "single"` in `pyproject.toml`), run via pre-commit and the `lint.yml` CI workflow.
 - Secrets never in files — always injected via env vars into the container.
-- `inventory.html` derives its API base URL from `window.location.pathname` at runtime (subpath-aware).
+- `inventory.html` and `collection.html` derive their API base URL from `window.location.pathname` at runtime (subpath-aware).
+- `collection.html` lists a user's collection folders and lets the owner list items for sale (single item, or a queue that reopens the same form per selected item so each lot gets its own condition/price) via `POST /marketplace/listings`; each successfully listed item is then removed from the collection folder via `DELETE /users/{username}/collection/folders/{folder_id}/releases/{release_id}/instances/{instance_id}`. The listing form prefills price from `GET /marketplace/price_suggestions/{release_id}` (rounded up) and links to `discogs.com/sell/history/{release_id}`.
+- `collection.html` columns are sortable by clicking the header (toggles asc/desc). Artist/Title/Format/Label/Cat#/Year/Rating/Added map to the API's `sort` query param (server-side, works across the whole paginated collection); Folder/Notes have no API sort support, so those are sorted client-side and only affect the currently loaded page. There is no Low/Median/High price column — the Discogs API does not expose historical sold-price statistics anywhere.

@@ -40,6 +40,7 @@ DISCOGS_BASE = 'https://api.discogs.com'
 PORT = 8777
 SPEC_PATH = Path(__file__).parent / 'discogs-openapi.yaml'
 INVENTORY_PATH = Path(__file__).parent / 'inventory.html'
+COLLECTION_PATH = Path(__file__).parent / 'collection.html'
 
 CONSUMER_KEY = os.environ.get('DISCOGS_CONSUMER_KEY', '')
 CONSUMER_SECRET = os.environ.get('DISCOGS_CONSUMER_SECRET', '')
@@ -128,13 +129,13 @@ _SWAGGER_HTML = f"""<!DOCTYPE html>
     const banner = document.getElementById('oauth-banner');
     if (data.authorized) {{
       banner.style.background = '#e8f5e9';
-      banner.innerHTML = '&#10003; OAuth: connected as <strong>' + data.username + '</strong> — requests are signed automatically &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/oauth/revoke">Revoke</a>';
+      banner.innerHTML = '&#10003; OAuth: connected as <strong>' + data.username + '</strong> — requests are signed automatically &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/oauth/revoke">Revoke</a>';
     }} else if (data.configured) {{
       banner.style.background = '#fff3e0';
-      banner.innerHTML = 'OAuth app configured. <a href="{BASE_URL}/oauth/start">Authorize with Discogs &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a>';
+      banner.innerHTML = 'OAuth app configured. <a href="{BASE_URL}/oauth/start">Authorize with Discogs &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a>';
     }} else {{
       banner.style.background = '#f5f5f5';
-      banner.innerHTML = 'Set <code>DISCOGS_CONSUMER_KEY</code> + <code>DISCOGS_CONSUMER_SECRET</code> to enable OAuth, or use Authorize below. &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a>';
+      banner.innerHTML = 'Set <code>DISCOGS_CONSUMER_KEY</code> + <code>DISCOGS_CONSUMER_SECRET</code> to enable OAuth, or use Authorize below. &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a>';
     }}
   }});
 </script>
@@ -190,6 +191,10 @@ async def swagger_ui(request: Request) -> HTMLResponse:
 
 async def inventory_page(request: Request) -> HTMLResponse:
     return HTMLResponse(INVENTORY_PATH.read_text(encoding='utf-8'))
+
+
+async def collection_page(request: Request) -> HTMLResponse:
+    return HTMLResponse(COLLECTION_PATH.read_text(encoding='utf-8'))
 
 
 async def openapi_spec(request: Request) -> Response:
@@ -394,6 +399,7 @@ app = Starlette(
         Route('/docs', swagger_ui),
         Route('/openapi.json', openapi_spec),
         Route('/inventory', inventory_page),
+        Route('/collection', collection_page),
         Route('/oauth/status', oauth_status),
         Route('/oauth/start', oauth_start),
         Route('/oauth/callback', oauth_callback),
@@ -417,6 +423,7 @@ app.add_middleware(
 if __name__ == '__main__':
     print(f'\n  Swagger UI  → http://localhost:{PORT}/')
     print(f'  Inventory   → http://localhost:{PORT}/inventory')
+    print(f'  Collection  → http://localhost:{PORT}/collection')
     if CONSUMER_KEY:
         print(f'  OAuth start → http://localhost:{PORT}/oauth/start')
     else:
