@@ -4,137 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Discogs Collection</title>
+  <link rel="stylesheet" href="theme.css?v=__THEME_CSS_VERSION__">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1a1a2e; background: #f5f5f5; }
-
-    /* ── Top bar ── */
-    .topbar { background: #1a1a2e; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
-    .topbar h1 { font-size: 17px; font-weight: 700; }
-    .topbar a { color: #90a4ae; font-size: 13px; text-decoration: none; }
-    .topbar a:hover { color: #fff; }
-
-    /* ── Controls ── */
-    .controls { background: #fff; border-bottom: 1px solid #ddd; padding: 10px 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .controls label { font-size: 12px; color: #666; font-weight: 500; }
-    .controls input[type=text] { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 14px; width: 160px; outline: none; }
-    .controls input[type=text]:focus { border-color: #1565c0; }
-    .controls select { border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; font-size: 13px; background: #fff; outline: none; }
-    .sep { width: 1px; height: 24px; background: #e0e0e0; margin: 0 2px; }
-    .btn { background: #1565c0; color: #fff; border: none; border-radius: 4px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
-    .btn:hover { background: #0d47a1; }
-    .btn.btn-success { background: #2e7d32; }
-    .btn.btn-success:hover { background: #1b5e20; }
-    .btn.btn-danger { background: #c62828; }
-    .btn.btn-danger:hover { background: #b71c1c; }
-    .btn.btn-sm { padding: 4px 10px; font-size: 12px; }
-    .btn.btn-icon { padding: 4px 7px; font-size: 13px; border-radius: 3px; }
-    .btn:disabled { opacity: .5; cursor: default; }
-    .ml-auto { margin-left: auto; }
-
-    /* ── Bulk toolbar ── */
-    #bulk-bar { background: #e8eaf6; border-bottom: 1px solid #c5cae9; padding: 8px 20px;
-                display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
-    #bulk-bar.visible { display: flex; }
-    #bulk-count { font-weight: 600; font-size: 13px; color: #283593; }
-
-    /* ── Info bar ── */
-    .infobar { padding: 7px 20px; font-size: 13px; color: #555; background: #fafafa; border-bottom: 1px solid #eee; }
-
-    /* ── Table ── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: #fff; }
-    thead th { background: #f0f0f5; text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
-               color: #444; border-bottom: 2px solid #ddd; white-space: nowrap; }
-    thead th.sortable { cursor: pointer; user-select: none; }
-    thead th.sortable:hover { background: #e8eaf6; }
-    thead th .col-note { font-weight: 400; color: #999; font-size: 10px; }
-    td { padding: 8px 10px; border-bottom: 1px solid #efefef; vertical-align: middle; }
-    tr:hover td { background: #fafafe; }
-    tr.selected td { background: #e8eaf6; }
-
-    /* ── Checkbox ── */
-    input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #1565c0; }
-    .col-check { width: 36px; }
-    .col-thumb { width: 58px; }
-    .col-actions { width: 110px; white-space: nowrap; }
-
-    /* ── Thumbnail ── */
-    .thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 3px; display: block; }
-    .thumb-ph { width: 50px; height: 50px; background: #e8e8e8; border-radius: 3px; display: flex;
-                align-items: center; justify-content: center; font-size: 22px; color: #ccc; }
-
-    /* ── Release info ── */
-    .r-artist { font-weight: 600; }
-    .r-meta { font-size: 12px; color: #888; margin-top: 2px; }
-    .r-link { font-size: 12px; color: #1565c0; text-decoration: none; }
-    .r-link:hover { text-decoration: underline; }
-
     /* ── Rating ── */
-    .rating { color: #f57f17; white-space: nowrap; }
-    .rating .empty { color: #ddd; }
-
-    /* ── Pagination ── */
-    .pagination { padding: 14px 20px; display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
-    .pagination button { border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: 5px 10px;
-                         font-size: 13px; cursor: pointer; min-width: 34px; }
-    .pagination button:hover:not(:disabled) { background: #e8eaf6; }
-    .pagination button.active { background: #1565c0; color: #fff; border-color: #1565c0; font-weight: 700; }
-    .pagination button:disabled { opacity: .35; cursor: default; }
-
-    /* ── States ── */
-    .state { text-align: center; padding: 70px 20px; color: #999; font-size: 15px; }
-    .state.error { color: #c62828; }
-
-    /* ── Modal ── */
-    #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
-                     z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
-    #modal-overlay.open { display: flex; }
-    .modal { background: #fff; border-radius: 6px; width: 100%; max-width: 560px; max-height: 90vh;
-             display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
-    .modal-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
-    .modal-header h2 { font-size: 16px; flex: 1; }
-    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; line-height: 1; padding: 0 4px; }
-    .modal-close:hover { color: #333; }
-    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-    .modal-footer { padding: 14px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
-
-    /* ── Form ── */
-    .form-row { margin-bottom: 14px; }
-    .form-row label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
-    .form-row input[type=text], .form-row input[type=number], .form-row select, .form-row textarea {
-      width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 7px 10px; font-size: 14px; outline: none; font-family: inherit; }
-    .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: #1565c0; }
-    .form-row textarea { resize: vertical; min-height: 70px; }
-    .form-hint { font-size: 11px; color: #999; margin-top: 3px; }
-    .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .form-check { display: flex; align-items: center; gap: 8px; }
-    .form-check input { width: auto; }
-    .form-section { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase;
-                    letter-spacing: .5px; margin: 16px 0 10px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
-    .release-info { background: #f5f5f5; border-radius: 4px; padding: 8px 12px; font-size: 13px;
-                    margin-bottom: 14px; color: #444; }
-    .warn-note { background: #fff3e0; color: #e65100; border-radius: 4px; padding: 8px 12px;
-                 font-size: 12px; margin-bottom: 14px; }
-
-    /* ── Toasts ── */
-    #toasts { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
-    .toast { background: #333; color: #fff; padding: 10px 16px; border-radius: 5px; font-size: 13px;
-             opacity: 0; transform: translateX(20px); transition: all .25s; max-width: 320px; }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast.toast-success { background: #2e7d32; }
-    .toast.toast-error { background: #c62828; }
-    .toast.toast-info { background: #1565c0; }
-
+    .rating { color: #f5b942; white-space: nowrap; }
+    .rating .empty { color: var(--border); }
   </style>
 </head>
 <body>
 
-<div class="topbar">
-  <h1>Discogs Collection</h1>
-  <a id="swagger-link" href="#">← Swagger UI</a>
-  <a id="inventory-link" href="#">Inventory →</a>
-</div>
+<header class="site-header">
+  <a href="." class="header-name">Discogs <span>Collection</span></a>
+  <div class="header-right" id="site-nav">Checking sign-in status…</div>
+</header>
 
 <div class="controls">
   <label>Username</label>
@@ -143,20 +25,35 @@
   <div class="sep"></div>
 
   <label>Folder</label>
-  <select id="folder" onchange="load(1)">
+  <select id="folder" onchange="onFolderChange()">
     <option value="0">All</option>
   </select>
 
   <div class="sep"></div>
 
   <label>Per page</label>
-  <select id="per_page" onchange="load(1)">
+  <select id="per_page" onchange="onControlChange()">
     <option value="25">25</option>
     <option value="50" selected>50</option>
     <option value="100">100</option>
   </select>
 
   <button class="btn" onclick="loadAll()">Load</button>
+  <button class="btn btn-sm ml-auto" id="filters-toggle-btn" onclick="enableFilters()">🔍 Enable filters</button>
+</div>
+
+<div class="filters-bar" id="filters-row">
+  <label>Artist</label>
+  <select id="filter-artist" onchange="onFilterChange('artist', this.value)"><option value="">All Artist</option></select>
+  <label>Format</label>
+  <select id="filter-format" onchange="onFilterChange('format', this.value)"><option value="">All Format</option></select>
+  <label>Label</label>
+  <select id="filter-label" onchange="onFilterChange('label', this.value)"><option value="">All Label</option></select>
+  <label>Year</label>
+  <select id="filter-year" onchange="onFilterChange('year', this.value)"><option value="">All Year</option></select>
+  <label>Rating</label>
+  <select id="filter-rating" onchange="onFilterChange('rating', this.value)"><option value="">All Rating</option></select>
+  <button class="btn btn-sm" style="margin-left:auto" onclick="clearFilters()">✕ Clear filters</button>
 </div>
 
 <div id="bulk-bar">
@@ -183,7 +80,7 @@
         <div class="form-section">Grading</div>
         <div class="form-2col">
           <div class="form-row">
-            <label>Media Condition <span style="color:#c62828">*</span></label>
+            <label>Media Condition <span style="color:var(--danger)">*</span></label>
             <select name="condition">
               <option value="">— select —</option>
               <option>Mint (M)</option>
@@ -218,12 +115,12 @@
         <div class="form-section">Sale</div>
         <div class="form-2col">
           <div class="form-row">
-            <label>Price <span style="color:#c62828">*</span></label>
+            <label>Price <span style="color:var(--danger)">*</span></label>
             <input type="text" name="price" placeholder="9.99">
             <div class="form-hint" id="price-suggestion"></div>
           </div>
           <div class="form-row">
-            <label>Status <span style="color:#c62828">*</span></label>
+            <label>Status <span style="color:var(--danger)">*</span></label>
             <select name="status">
               <option value="For Sale">For Sale</option>
               <option value="Draft">Draft</option>
@@ -238,7 +135,7 @@
         </div>
 
         <div class="form-row">
-          <label>Comments <span style="color:#888;font-weight:400">(public — shown to buyers)</span></label>
+          <label>Comments <span style="color:var(--text-muted);font-weight:400">(public — shown to buyers)</span></label>
           <textarea name="comments" placeholder="Condition notes, pressing info…"></textarea>
         </div>
 
@@ -266,7 +163,7 @@
       </form>
     </div>
     <div class="modal-footer">
-      <button class="btn" style="background:#757575" onclick="cancelModal()">Cancel</button>
+      <button class="btn btn-secondary" onclick="cancelModal()">Cancel</button>
       <button class="btn btn-success" id="modal-save-btn" onclick="submitModal()">List for sale</button>
     </div>
   </div>
@@ -274,11 +171,11 @@
 
 <div id="toasts"></div>
 
+<script src="nav.js?v=__NAV_JS_VERSION__"></script>
 <script>
 // ── Base URL (works on any subpath) ─────────────────────────────────────────
 const BASE = window.location.pathname.replace(/\/collection\/?$/, '');
-document.getElementById('swagger-link').href = BASE || '/';
-document.getElementById('inventory-link').href = `${BASE}/inventory`;
+initDiscogsNav('site-nav');
 
 // ── Utils ───────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -294,13 +191,50 @@ function parseNumAuto(v) {
 function salesHistoryUrl(releaseId) { return `https://www.discogs.com/sell/history/${releaseId}`; }
 
 function releaseArtist(basic) { return basic?.artists?.[0]?.name ?? ''; }
-function releaseFormat(basic) {
-  const f = basic?.formats?.[0];
+
+// A release can have more than one distinct format entry (e.g. a listing
+// bundling separate bitrate-encoded files, or a box set mixing media types)
+// — formats is a real array, not a pre-joined string, so each entry is kept
+// and summarized on its own.
+function formatSummary(f) {
   if (!f) return '';
-  return [f.name, f.descriptions?.length ? f.descriptions.join(', ') : null].filter(Boolean).join(' · ');
+  return [
+    f.qty && f.qty !== '1' ? `${f.qty}×` : null,
+    f.name,
+    f.text,
+    f.descriptions?.length ? f.descriptions.join(', ') : null,
+  ].filter(Boolean).join(' · ');
+}
+function releaseFormats(basic) {
+  return (basic?.formats ?? []).map(formatSummary).filter(Boolean);
+}
+function releaseFormat(basic) { return releaseFormats(basic)[0] ?? ''; }
+
+// Table cell: name/qty/text stay a plain header line, but a format's own
+// descriptions (e.g. '7", 45 RPM, Limited Edition, Stereo') become one bullet
+// each instead of a single comma-joined run-on line. Multiple format entries
+// (a real array — see formatSummary above) each get their own header+list block.
+function renderFormatCell(basic) {
+  const formats = basic?.formats ?? [];
+  if (!formats.length) return '';
+  const blocks = formats.map(f => {
+    const header = [f.qty && f.qty !== '1' ? `${f.qty}×` : null, f.name, f.text].filter(Boolean).join(' ');
+    const descs = f.descriptions ?? [];
+    const list = descs.length
+      ? `<ul style="margin:2px 0 0;padding-left:1.1em">${descs.map(d => `<li>${esc(d)}</li>`).join('')}</ul>`
+      : '';
+    return `<div>${esc(header)}${list}</div>`;
+  });
+  return blocks.join('<div style="height:6px"></div>');
 }
 function releaseCatno(basic) { return basic?.labels?.[0]?.catno ?? ''; }
 function releaseLabelName(basic) { return basic?.labels?.[0]?.name ?? ''; }
+function releaseArtistId(basic) { return basic?.artists?.[0]?.id ?? null; }
+function releaseLabelId(basic) { return basic?.labels?.[0]?.id ?? null; }
+function linkOrText(url, text, cls = 'cell-link') {
+  const t = esc(text);
+  return url ? `<a class="${cls}" href="${url}" target="_blank">${t}</a>` : t;
+}
 function releaseLabel(item) {
   const b = item?.basic_information ?? {};
   return [releaseArtist(b), b.title].filter(Boolean).join(' – ');
@@ -330,6 +264,20 @@ let _currentPage = 1;
 let _lastFoldersUser = null;
 let _folders = [];            // [{id, name, count}, ...]
 let _collectionFields = [];   // user-defined collection notes fields: [{id, name, ...}, ...]
+
+// Global filters: Discogs has no filter-by-format/label/year/rating query
+// param, so filtering means fetching the *entire* folder into memory first
+// (unlike sort, which stays page-scoped) — opt-in via "Enable filters" since
+// large collections take many requests. null = not loaded.
+let _allItems = null;
+let _activeFilters = {};
+const FILTER_COLUMNS = [
+  { key: 'artist', label: 'Artist' },
+  { key: 'format', label: 'Format' },
+  { key: 'label', label: 'Label' },
+  { key: 'year', label: 'Year' },
+  { key: 'rating', label: 'Rating' },
+];
 let _sort = 'added';
 let _sortOrder = 'desc';
 
@@ -364,6 +312,59 @@ function itemNotesText(item) {
     .map(n => `${byId[n.field_id] ?? ''}: ${n.value}`)
     .join('; ');
 }
+
+// [{key, order}, ...] in priority order. Chain[0] is always kept in sync with
+// _sort/_sortOrder (the API-backed primary sort); Shift+click appends/edits
+// further tie-breaker keys, which only reorder the currently loaded page —
+// Discogs' API has no multi-column sort, so there's no way to do this globally.
+let _sortChain = [{ key: 'added', order: 'desc' }];
+
+// Remembers the last sort the user picked (per browser, via localStorage) so
+// it's the default next time — an explicit ?sort= in the URL still wins.
+const SORT_STORAGE_KEY = 'discogs_collection_sort';
+function saveSortToStorage() {
+  try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(_sortChain)); } catch { /* storage unavailable */ }
+}
+function loadSortFromStorage() {
+  try {
+    const chain = JSON.parse(localStorage.getItem(SORT_STORAGE_KEY));
+    if (Array.isArray(chain) && chain.length && chain[0]?.key && chain[0]?.order) return chain;
+  } catch { /* ignore malformed/missing value */ }
+  return null;
+}
+
+function sortValueOf(item, key) {
+  const b = item.basic_information ?? {};
+  switch (key) {
+    case 'artist': return releaseArtist(b).toLowerCase();
+    case 'title': return (b.title ?? '').toLowerCase();
+    case 'format': return releaseFormat(b).toLowerCase();
+    case 'label': return releaseLabelName(b).toLowerCase();
+    case 'catno': return releaseCatno(b).toLowerCase();
+    case 'year': return Number(b.year) || 0;
+    case 'rating': return Number(item.rating) || 0;
+    case 'folder': return folderNameFor(item).toLowerCase();
+    case 'notes': return itemNotesText(item).toLowerCase();
+    case 'added': return item.date_added ?? '';
+    default: return '';
+  }
+}
+
+// Sorts an arbitrary array in place by the full chain (primary + tie-breakers).
+function sortItems(arr) {
+  const chain = _sortChain;
+  arr.sort((a, b) => {
+    for (const { key, order } of chain) {
+      const dir = order === 'asc' ? 1 : -1;
+      const av = sortValueOf(a, key), bv = sortValueOf(b, key);
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+    }
+    return 0;
+  });
+  return arr;
+}
+function applyClientSort() { sortItems(_items); }
 
 // ── API ──────────────────────────────────────────────────────────────────────
 async function apiCreateListing(body) {
@@ -447,17 +448,19 @@ function renderRow(item) {
   const releaseUrl = b.id ? `https://www.discogs.com/release/${b.id}` : null;
   const isSelected = _selected.has(item.instance_id);
 
+  const artistId = releaseArtistId(b);
+  const labelId = releaseLabelId(b);
   const cellsByKey = {
-    artist: esc(releaseArtist(b)),
-    title: `${esc(title)}${releaseUrl ? `<div class="r-meta"><a class="r-link" href="${releaseUrl}" target="_blank">release #${b.id}</a></div>` : ''}`,
-    format: esc(releaseFormat(b)),
-    label: esc(releaseLabelName(b)),
+    artist: linkOrText(artistId ? `https://www.discogs.com/artist/${artistId}` : null, releaseArtist(b), 'cell-link r-artist'),
+    title: linkOrText(releaseUrl, title),
+    format: renderFormatCell(b),
+    label: linkOrText(labelId ? `https://www.discogs.com/label/${labelId}` : null, releaseLabelName(b)),
     catno: esc(releaseCatno(b)),
     year: esc(b.year ?? ''),
     rating: ratingStars(item.rating),
     folder: esc(folderNameFor(item)),
     notes: esc(itemNotesText(item)),
-    added: `<span style="color:#888;white-space:nowrap">${fmtDate(item.date_added)}</span>`,
+    added: `<span style="color:var(--text-muted);white-space:nowrap">${fmtDate(item.date_added)}</span>`,
   };
   const cells = visibleColumns().map(c => `<td>${cellsByKey[c.key] ?? ''}</td>`).join('');
 
@@ -474,14 +477,18 @@ function renderRow(item) {
   </tr>`;
 }
 
-function sortArrow(key) {
-  if (_sort !== key) return '';
-  return _sortOrder === 'asc' ? ' ▲' : ' ▼';
+function sortBadge(key) {
+  const idx = _sortChain.findIndex(s => s.key === key);
+  if (idx === -1) return '';
+  const arrow = _sortChain[idx].order === 'asc' ? '▲' : '▼';
+  // Only show the priority number once a secondary+ key is active.
+  const num = _sortChain.length > 1 ? `<sup>${idx + 1}</sup>` : '';
+  return ` ${arrow}${num}`;
 }
 
 function renderTheadRow() {
   const cells = visibleColumns().map(c =>
-    `<th class="sortable" onclick="onHeaderClick('${c.key}')" title="${c.clientOnly ? 'Sorts only the items on the current page — not supported by the Discogs API for the whole collection' : 'Click to sort'}">${esc(c.label)}${c.clientOnly ? ' <span class="col-note">(page)</span>' : ''}${sortArrow(c.key)}</th>`
+    `<th class="sortable" onclick="onHeaderClick('${c.key}', event)" title="${c.clientOnly ? 'Sorts only the items on the current page — not supported by the Discogs API for the whole collection' : 'Click to sort, Shift+click to add as a secondary sort'}">${esc(c.label)}${c.clientOnly ? ' <span class="col-note">(page)</span>' : ''}${sortBadge(c.key)}</th>`
   ).join('');
   return `<tr>
     <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleSelectAll(this.checked)"></th>
@@ -491,34 +498,42 @@ function renderTheadRow() {
   </tr>`;
 }
 
-// Applies the current sort client-side; used for folder/notes (no API support)
-// and, after each load(), as a no-op guard for server-sorted keys.
-function applyClientSort() {
-  if (SERVER_SORT_KEYS.has(_sort)) return;
-  const dir = _sortOrder === 'asc' ? 1 : -1;
-  const valueOf = _sort === 'folder'
-    ? it => folderNameFor(it).toLowerCase()
-    : it => itemNotesText(it).toLowerCase();
-  _items.sort((a, b) => {
-    const av = valueOf(a), bv = valueOf(b);
-    return av < bv ? -dir : av > bv ? dir : 0;
-  });
+function refreshThead() {
+  const thead = document.querySelector('#root table thead');
+  if (thead) thead.innerHTML = renderTheadRow();
 }
 
-function onHeaderClick(key) {
+// Plain click: replace the whole sort with just this column (existing behavior).
+// Shift+click: append this column as a tie-breaker, or toggle its direction if
+// it's already in the chain — reorders the current page only, since Discogs'
+// API has no multi-column sort to request server-side.
+function onHeaderClick(key, event) {
+  if (event?.shiftKey) {
+    const existing = _sortChain.find(s => s.key === key);
+    if (existing) existing.order = existing.order === 'asc' ? 'desc' : 'asc';
+    else _sortChain.push({ key, order: DEFAULT_DESC_KEYS.has(key) ? 'desc' : 'asc' });
+    saveSortToStorage();
+    applyClientSort();
+    rerenderTbody();
+    refreshThead();
+    return;
+  }
+
   if (_sort === key) {
     _sortOrder = _sortOrder === 'asc' ? 'desc' : 'asc';
   } else {
     _sort = key;
     _sortOrder = DEFAULT_DESC_KEYS.has(key) ? 'desc' : 'asc';
   }
+  _sortChain = [{ key: _sort, order: _sortOrder }];
+  saveSortToStorage();
+
   if (SERVER_SORT_KEYS.has(key)) {
     load(1);
   } else {
     applyClientSort();
     rerenderTbody();
-    const thead = document.querySelector('#root table thead');
-    if (thead) thead.innerHTML = renderTheadRow();
+    refreshThead();
   }
 }
 
@@ -531,14 +546,21 @@ function renderPagination(pag, page) {
   const total = pag.pages ?? 1;
   if (total <= 1) return '';
   const parts = [];
-  parts.push(`<button onclick="load(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
+  parts.push(`<button onclick="goToPage(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
   let lo = Math.max(1, page-3), hi = Math.min(total, lo+6);
   if (hi-lo < 6) lo = Math.max(1, hi-6);
-  if (lo > 1) { parts.push(`<button onclick="load(1)">1</button>`); if (lo>2) parts.push(`<button disabled>…</button>`); }
-  for (let p = lo; p <= hi; p++) parts.push(`<button class="${p===page?'active':''}" onclick="load(${p})">${p}</button>`);
-  if (hi < total) { if (hi<total-1) parts.push(`<button disabled>…</button>`); parts.push(`<button onclick="load(${total})">${total}</button>`); }
-  parts.push(`<button onclick="load(${page+1})" ${page>=total?'disabled':''}>›</button>`);
+  if (lo > 1) { parts.push(`<button onclick="goToPage(1)">1</button>`); if (lo>2) parts.push(`<button disabled>…</button>`); }
+  for (let p = lo; p <= hi; p++) parts.push(`<button class="${p===page?'active':''}" onclick="goToPage(${p})">${p}</button>`);
+  if (hi < total) { if (hi<total-1) parts.push(`<button disabled>…</button>`); parts.push(`<button onclick="goToPage(${total})">${total}</button>`); }
+  parts.push(`<button onclick="goToPage(${page+1})" ${page>=total?'disabled':''}>›</button>`);
   return `<div class="pagination">${parts.join('')}</div>`;
+}
+
+// Dispatches to either the normal server-paginated loader or the client-side
+// filtered-page renderer, depending on whether global filters are active.
+function goToPage(page) {
+  if (_allItems) renderFilteredPage(page);
+  else load(page);
 }
 
 // ── Folders & collection fields ─────────────────────────────────────────────
@@ -564,9 +586,122 @@ async function loadCollectionFields(username) {
   } catch { _collectionFields = []; }
 }
 
+// ── Global filters ──────────────────────────────────────────────────────────
+function filterValueOf(item, key) {
+  const b = item.basic_information ?? {};
+  switch (key) {
+    case 'artist': return (b.artists ?? []).map(a => a.name).filter(Boolean);
+    // Every part of a format entry is filterable, not just its name — e.g.
+    // "45 RPM" or "Limited Edition" from descriptions, not only "Vinyl"/"CD".
+    case 'format': return (b.formats ?? []).flatMap(f => [f.name, f.text, ...(f.descriptions ?? [])]).filter(Boolean);
+    case 'label': return (b.labels ?? []).map(l => l.name).filter(Boolean);
+    case 'year': return b.year ? [String(b.year)] : [];
+    case 'rating': return item.rating ? [String(item.rating)] : [];
+    default: return [];
+  }
+}
+
+function matchesActiveFilters(item) {
+  return FILTER_COLUMNS.every(c => {
+    const active = _activeFilters[c.key];
+    return !active || filterValueOf(item, c.key).includes(active);
+  });
+}
+
+function buildFilterOptions() {
+  for (const c of FILTER_COLUMNS) {
+    const values = new Set();
+    for (const item of _allItems) filterValueOf(item, c.key).forEach(v => values.add(v));
+    const numeric = c.key === 'year' || c.key === 'rating';
+    const sorted = [...values].sort(numeric ? (a, b) => Number(b) - Number(a) : (a, b) => a.localeCompare(b));
+    const sel = document.getElementById(`filter-${c.key}`);
+    if (sel) sel.innerHTML = `<option value="">All ${esc(c.label)}</option>` + sorted.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  }
+}
+
+function resetFilters() {
+  _allItems = null;
+  _activeFilters = {};
+  const row = document.getElementById('filters-row');
+  if (row) row.classList.remove('visible');
+  const btn = document.getElementById('filters-toggle-btn');
+  if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = '🔍 Enable filters'; }
+}
+
+async function enableFilters() {
+  const username = document.getElementById('username').value.trim();
+  if (!username) { alert('Enter a username.'); return; }
+  const folderId = document.getElementById('folder').value || '0';
+  const btn = document.getElementById('filters-toggle-btn');
+  btn.disabled = true;
+
+  const items = [];
+  try {
+    let page = 1, pages = 1;
+    do {
+      btn.textContent = `Loading… ${items.length}`;
+      const apiQs = new URLSearchParams({ sort: 'added', sort_order: 'desc', per_page: '100', page });
+      const resp = await fetch(`${BASE}/users/${encodeURIComponent(username)}/collection/folders/${folderId}/releases?${apiQs}`);
+      if (!resp.ok) throw new Error('request failed');
+      const data = await resp.json();
+      items.push(...(data.releases ?? []));
+      pages = data.pagination?.pages ?? 1;
+      page++;
+    } while (page <= pages);
+  } catch {
+    toast("Couldn't load the full collection for filtering", 'error');
+    btn.disabled = false;
+    btn.textContent = '🔍 Enable filters';
+    return;
+  }
+
+  _allItems = items;
+  buildFilterOptions();
+  document.getElementById('filters-row').classList.add('visible');
+  btn.style.display = 'none';
+  renderFilteredPage(1);
+}
+
+function onFilterChange(key, value) {
+  _activeFilters[key] = value;
+  renderFilteredPage(1);
+}
+
+function clearFilters() {
+  _activeFilters = {};
+  FILTER_COLUMNS.forEach(c => { const el = document.getElementById(`filter-${c.key}`); if (el) el.value = ''; });
+  renderFilteredPage(1);
+}
+
+function renderFilteredPage(page) {
+  const filtered = sortItems(_allItems.filter(matchesActiveFilters));
+  const perPage = Number(document.getElementById('per_page').value);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  page = Math.min(Math.max(1, page), totalPages);
+  _currentPage = page;
+  _items = filtered.slice((page - 1) * perPage, page * perPage);
+  _pagination = { page, pages: totalPages, per_page: perPage, items: filtered.length };
+  clearSelection();
+  renderTablePage();
+}
+
+// Called when username/folder changes — the loaded full dataset (if any) no
+// longer matches, so drop back to normal server-paginated mode.
+function onFolderChange() {
+  resetFilters();
+  load(1);
+}
+
+// Called for controls that don't invalidate an already-loaded full dataset
+// (currently just per_page) — re-paginate in whichever mode is active.
+function onControlChange() {
+  goToPage(1);
+}
+
 async function loadAll() {
   const username = document.getElementById('username').value.trim();
   if (!username) { alert('Enter a username.'); return; }
+  resetFilters();
   if (username !== _lastFoldersUser) await Promise.all([loadFolders(username), loadCollectionFields(username)]);
   load(1);
 }
@@ -603,28 +738,34 @@ async function load(page) {
     _items       = data.releases ?? [];
     applyClientSort();
     _currentPage = Number(_pagination.page ?? page);
-
-    const total = Number(_pagination.items ?? _items.length);
-    const perP  = Number(perPage);
-    const from  = (_currentPage - 1) * perP + 1;
-    const to    = Math.min(_currentPage * perP, total);
-    const info  = total > 0 ? `Showing ${from}–${to} of ${total} items` : 'No items found';
-
-    if (!_items.length) {
-      document.getElementById('root').innerHTML = `<div class="infobar">${info}</div><div class="state">No items found.</div>`;
-      return;
-    }
-
-    document.getElementById('root').innerHTML =
-      `<div class="infobar">${info} · click a column header to sort</div>
-       <div class="table-wrap"><table>
-         <thead>${renderTheadRow()}</thead>
-         <tbody>${_items.map(renderRow).join('')}</tbody>
-       </table></div>` +
-      renderPagination(_pagination, _currentPage);
+    renderTablePage();
   } catch(e) {
     document.getElementById('root').innerHTML = `<div class="state error">Network error: ${esc(e.message)}</div>`;
   }
+}
+
+// Renders the infobar + table + pagination from the current _items/_pagination/
+// _currentPage — shared by the server-paginated path (load) and the client-side
+// filtered path (renderFilteredPage).
+function renderTablePage() {
+  const total = Number(_pagination.items ?? _items.length);
+  const perP  = Number(_pagination.per_page ?? document.getElementById('per_page').value);
+  const from  = _items.length ? (_currentPage - 1) * perP + 1 : 0;
+  const to    = Math.min(_currentPage * perP, total);
+  const info  = total > 0 ? `Showing ${from}–${to} of ${total} items` : 'No items found';
+
+  if (!_items.length) {
+    document.getElementById('root').innerHTML = `<div class="infobar">${info}</div><div class="state">No items found.</div>`;
+    return;
+  }
+
+  document.getElementById('root').innerHTML =
+    `<div class="infobar">${info} · click a column header to sort, Shift+click to add a secondary sort</div>
+     <div class="table-wrap"><table>
+       <thead>${renderTheadRow()}</thead>
+       <tbody>${_items.map(renderRow).join('')}</tbody>
+     </table></div>` +
+    renderPagination(_pagination, _currentPage);
 }
 
 // ── List for sale ─────────────────────────────────────────────────────────────
@@ -785,10 +926,17 @@ fv('price').addEventListener('input', () => { _priceManuallyEdited = true; });
 // ── Restore URL state or auto-load the authenticated user ─────────────────────
 (async function () {
   const p = new URLSearchParams(location.search);
+  if (p.get('sort')) {
+    _sort      = p.get('sort');
+    _sortOrder = p.get('sort_order') ?? 'desc';
+    _sortChain = [{ key: _sort, order: _sortOrder }];
+  } else {
+    const stored = loadSortFromStorage();
+    if (stored) { _sortChain = stored; _sort = stored[0].key; _sortOrder = stored[0].order; }
+  }
+
   if (p.get('user')) {
     document.getElementById('username').value = p.get('user');
-    _sort      = p.get('sort') ?? 'added';
-    _sortOrder = p.get('sort_order') ?? 'desc';
     document.getElementById('per_page').value = p.get('per_page') ?? '50';
     await Promise.all([loadFolders(p.get('user')), loadCollectionFields(p.get('user'))]);
     if (p.get('folder')) document.getElementById('folder').value = p.get('folder');

@@ -7,8 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY sources/ .
 
-RUN mkdir /app/data
-
 EXPOSE 8777
 
 CMD ["python", "proxy.py"]

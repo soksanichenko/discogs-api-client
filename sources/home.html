@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Discogs API Proxy</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="theme.css?v=__THEME_CSS_VERSION__">
+</head>
+<body>
+<header class="site-header">
+  <a href="." class="header-name">Discogs <span>API Proxy</span></a>
+  <div class="header-right" id="site-nav">Checking sign-in status…</div>
+</header>
+<main style="max-width:320px;margin:15vh auto 0;text-align:center;padding:0 20px">
+  <h1 style="font-size:1.8rem;font-weight:700;margin-bottom:.5rem">Discogs API Proxy</h1>
+  <p style="color:var(--text-muted);margin-bottom:1.5rem">Sign in to browse the interactive API docs, your inventory, and your collection.</p>
+  <div id="home-links" style="display:flex;flex-direction:column;gap:.6rem"></div>
+</main>
+<script src="nav.js?v=__NAV_JS_VERSION__"></script>
+<script>initDiscogsNav('site-nav', 'home-links');</script>
+</body>
+</html>

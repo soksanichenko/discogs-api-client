@@ -4,6 +4,7 @@ infisical_path: "/hosts/zelgray-work"
 
 docker_network: "active"
 docker_volumes_directory: "/opt/docker"
+redis_container_name: "redis"
 nginx_docker_container_name: "nginx-server"
 nginx_confd_path: "{{ docker_volumes_directory }}/nginx/conf.d"
 nginx_custom_upstream_path: "{{ nginx_confd_path }}/custom-upstream"
@@ -12,5 +13,6 @@ discogs_api_client_nginx_custom_locations_path: "{{ nginx_confd_path }}/zelgray.
 
 discogs_api_client_consumer_key: "{{ infisical_secrets.secrets['discogs-consumer-key'] }}"
 discogs_api_client_consumer_secret: "{{ infisical_secrets.secrets['discogs-consumer-secret'] }}"
+discogs_api_client_secret_key: "{{ infisical_secrets.secrets['discogs-secret-key'] }}"
 discogs_api_client_base_url: "https://zelgray.work/discogs"
 ...

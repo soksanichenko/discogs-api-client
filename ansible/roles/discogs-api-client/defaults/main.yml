@@ -4,6 +4,8 @@ discogs_api_client_port: 8777
 discogs_api_client_data_path: "{{ docker_volumes_directory }}/discogs-api-client"
 discogs_api_client_consumer_key: ''
 discogs_api_client_consumer_secret: ''
+discogs_api_client_secret_key: ''
+discogs_api_client_redis_url: "redis://{{ redis_container_name }}:6379"
 discogs_api_client_base_url: ''
 discogs_api_client_nginx_location: '/discogs'
 discogs_api_client_nginx_custom_locations_path: "{{ nginx_custom_locations_path }}"

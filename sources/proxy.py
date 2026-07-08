@@ -2,31 +2,48 @@
 """
 Local Swagger UI proxy for interactive Discogs API testing.
 
-Serves Swagger UI at http://localhost:PORT and transparently proxies all
-requests to https://api.discogs.com.
+Serves Swagger UI at http://localhost:PORT/docs and transparently proxies all
+requests to https://api.discogs.com. The site root (/) is just a sign-in
+landing page linking to /docs, /inventory, and /collection.
 
 OAuth 1.0a: set DISCOGS_CONSUMER_KEY + DISCOGS_CONSUMER_SECRET (in .env or
 environment), then visit /oauth/start. Once authorized, all proxied requests
 are signed automatically — no need to touch Swagger UI's Authorize dialog.
 
+The access token is kept in a signed, httpOnly session cookie (not on the
+server), so each browser/user authorizes and proxies independently. Set
+DISCOGS_SECRET_KEY to a stable random value in production so sessions survive
+restarts; without it, an ephemeral key is generated at startup.
+
 Manual auth still works: click "Authorize" in Swagger UI and fill one of:
   discogsToken     →  Discogs token=YOUR_PERSONAL_ACCESS_TOKEN
   discogsKeySecret →  Discogs key=YOUR_KEY, secret=YOUR_SECRET
+
+Set DISCOGS_REDIS_URL (e.g. redis://redis:6379) to cache GET /releases/{id}
+lookups — release metadata rarely changes and this is hit a lot for on-demand
+artist/label link resolution. Caching is skipped entirely if unset.
 """
 
+import hashlib
+import html
 import json
 import logging
 import os
+import re
+import secrets
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode
 
 import httpx
+import redis.asyncio as aioredis
 import uvicorn
 import yaml
 from dotenv import load_dotenv
 from oauthlib.oauth1 import Client as OAuth1Client
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
@@ -39,45 +56,84 @@ logger = logging.getLogger(__name__)
 DISCOGS_BASE = 'https://api.discogs.com'
 PORT = 8777
 SPEC_PATH = Path(__file__).parent / 'discogs-openapi.yaml'
+HOME_PATH = Path(__file__).parent / 'home.html'
+DOCS_PATH = Path(__file__).parent / 'docs.html'
+SUCCESS_PATH = Path(__file__).parent / 'success.html'
 INVENTORY_PATH = Path(__file__).parent / 'inventory.html'
 COLLECTION_PATH = Path(__file__).parent / 'collection.html'
+THEME_CSS_PATH = Path(__file__).parent / 'theme.css'
+NAV_JS_PATH = Path(__file__).parent / 'nav.js'
 
 CONSUMER_KEY = os.environ.get('DISCOGS_CONSUMER_KEY', '')
 CONSUMER_SECRET = os.environ.get('DISCOGS_CONSUMER_SECRET', '')
 BASE_URL = os.environ.get('DISCOGS_BASE_URL', f'http://localhost:{PORT}')
-TOKEN_PATH = (
-    Path(os.environ.get('DISCOGS_TOKEN_DIR', str(Path(__file__).parent)))
-    / '.oauth_token.json'
-)
+
+SECRET_KEY = os.environ.get('DISCOGS_SECRET_KEY', '')
+if not SECRET_KEY:
+    SECRET_KEY = secrets.token_hex(32)
+    logger.warning(
+        'DISCOGS_SECRET_KEY not set — using an ephemeral key; sessions will not '
+        'survive a restart'
+    )
+
+REDIS_URL = os.environ.get('DISCOGS_REDIS_URL', '')
+CACHE_TTL = (
+    60 * 60 * 24 * 30
+)  # 30 days — release metadata (esp. artist/label ids) is effectively static
+_redis: aioredis.Redis | None = None
+
+# GET requests to these Discogs paths are cached in Redis (when configured) —
+# release lookups are hit a lot for on-demand artist/label link resolution
+# (see inventory.html's openArtistPage/openLabelPage) and rarely change.
+_CACHEABLE_GET_PATHS = (re.compile(r'^releases/\d+$'),)
+
+
+async def _cache_get(key: str) -> bytes | None:
+    if not _redis:
+        return None
+    try:
+        return await _redis.get(key)
+    except Exception:
+        logger.warning('Redis GET failed for %s — treating as cache miss', key)
+        return None
+
+
+async def _cache_set(key: str, value: bytes) -> None:
+    if not _redis:
+        return
+    try:
+        await _redis.set(key, value, ex=CACHE_TTL)
+    except Exception:
+        logger.warning('Redis SET failed for %s — continuing without caching', key)
+
+
+@asynccontextmanager
+async def lifespan(app):
+    global _redis
+    if REDIS_URL:
+        _redis = aioredis.from_url(REDIS_URL)
+        try:
+            await _redis.ping()
+            logger.info('Connected to Redis cache at %s', REDIS_URL)
+        except Exception:
+            logger.warning(
+                'Could not reach Redis at %s — proceeding without caching', REDIS_URL
+            )
+            _redis = None
+    else:
+        logger.info('DISCOGS_REDIS_URL not set — release lookups will not be cached')
+    yield
+    if _redis:
+        await _redis.aclose()
+
 
 _pending_tokens: dict[str, str] = {}  # request oauth_token → oauth_token_secret
 
 
-def _load_token() -> dict | None:
-    """Load persisted OAuth access token from disk, if present."""
-    try:
-        return json.loads(TOKEN_PATH.read_text())
-    except FileNotFoundError:
-        return None
-    except Exception:
-        logger.warning('Could not read %s — ignoring', TOKEN_PATH)
-        return None
+def _asset_version(path: Path) -> str:
+    """Short content hash for cache-busting a static asset's URL (?v=...)."""
+    return hashlib.md5(path.read_bytes()).hexdigest()[:8]
 
-
-def _save_token(token: dict) -> None:
-    """Persist OAuth access token to disk with owner-only permissions."""
-    TOKEN_PATH.write_text(json.dumps(token))
-    TOKEN_PATH.chmod(0o600)
-    logger.info('OAuth token saved to %s', TOKEN_PATH)
-
-
-def _clear_token() -> None:
-    """Delete the persisted OAuth token file."""
-    TOKEN_PATH.unlink(missing_ok=True)
-    logger.info('OAuth token cleared')
-
-
-_oauth_access: dict | None = _load_token()  # {'token', 'secret', 'username'}
 
 # ---------------------------------------------------------------------------
 # Load spec and override server URL to point at this proxy
@@ -89,74 +145,6 @@ _spec['servers'] = [
     {'url': BASE_URL, 'description': 'Local proxy → api.discogs.com'},
 ]
 _SPEC_JSON = json.dumps(_spec)
-
-# ---------------------------------------------------------------------------
-# Swagger UI HTML
-# ---------------------------------------------------------------------------
-_SWAGGER_HTML = f"""<!DOCTYPE html>
-<html>
-<head>
-  <title>Discogs API — local proxy</title>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
-  <style>
-    #oauth-banner {{
-      padding: 10px 20px;
-      font-family: sans-serif;
-      font-size: 14px;
-      border-bottom: 1px solid #e0e0e0;
-    }}
-    #oauth-banner a {{ font-weight: bold; color: #1565c0; }}
-    #oauth-banner code {{ background: #f5f5f5; padding: 1px 4px; border-radius: 3px; }}
-  </style>
-</head>
-<body>
-<div id="oauth-banner">Checking OAuth status…</div>
-<div id="swagger-ui"></div>
-<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
-<script>
-  SwaggerUIBundle({{
-    url: '{BASE_URL}/openapi.json',
-    dom_id: '#swagger-ui',
-    presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
-    layout: 'BaseLayout',
-    persistAuthorization: true,
-    tryItOutEnabled: true,
-  }});
-
-  fetch('{BASE_URL}/oauth/status').then(r => r.json()).then(data => {{
-    const banner = document.getElementById('oauth-banner');
-    if (data.authorized) {{
-      banner.style.background = '#e8f5e9';
-      banner.innerHTML = '&#10003; OAuth: connected as <strong>' + data.username + '</strong> — requests are signed automatically &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/oauth/revoke">Revoke</a>';
-    }} else if (data.configured) {{
-      banner.style.background = '#fff3e0';
-      banner.innerHTML = 'OAuth app configured. <a href="{BASE_URL}/oauth/start">Authorize with Discogs &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a>';
-    }} else {{
-      banner.style.background = '#f5f5f5';
-      banner.innerHTML = 'Set <code>DISCOGS_CONSUMER_KEY</code> + <code>DISCOGS_CONSUMER_SECRET</code> to enable OAuth, or use Authorize below. &nbsp;&middot;&nbsp; <a href="{BASE_URL}/inventory">Inventory &rarr;</a> &nbsp;&middot;&nbsp; <a href="{BASE_URL}/collection">Collection &rarr;</a>';
-    }}
-  }});
-</script>
-</body>
-</html>
-"""
-
-_SUCCESS_HTML = f"""<!DOCTYPE html>
-<html>
-<head><title>Authorized — Discogs</title><meta charset="utf-8"></head>
-<body style="font-family:sans-serif;max-width:560px;margin:80px auto;text-align:center;color:#333">
-  <div style="font-size:48px">&#10003;</div>
-  <h1 style="color:#2e7d32;margin:8px 0">Connected!</h1>
-  <p>Authorized as <strong>{{username}}</strong>.<br>
-  All API requests through this proxy are now signed automatically.</p>
-  <a href="{BASE_URL}" style="display:inline-block;margin-top:24px;padding:10px 28px;
-     background:#1565c0;color:#fff;border-radius:4px;text-decoration:none;font-size:15px">
-    Open Swagger UI &rarr;
-  </a>
-</body>
-</html>"""
 
 # ---------------------------------------------------------------------------
 # Hop-by-hop headers that must not be forwarded
@@ -185,16 +173,42 @@ def _oauth1_client(**extra) -> OAuth1Client:
 # ---------------------------------------------------------------------------
 
 
+def _render_static_page(path: Path, **placeholders: str) -> str:
+    """Read an HTML page and substitute its __PLACEHOLDER__ tokens —
+    theme.css/nav.js are always stamped with a cache-busting content hash,
+    recomputed fresh on every request; callers may pass extra tokens."""
+    content = path.read_text(encoding='utf-8')
+    content = content.replace('__THEME_CSS_VERSION__', _asset_version(THEME_CSS_PATH))
+    content = content.replace('__NAV_JS_VERSION__', _asset_version(NAV_JS_PATH))
+    for name, value in placeholders.items():
+        content = content.replace(f'__{name}__', value)
+    return content
+
+
+async def home_page(request: Request) -> HTMLResponse:
+    return HTMLResponse(_render_static_page(HOME_PATH))
+
+
 async def swagger_ui(request: Request) -> HTMLResponse:
-    return HTMLResponse(_SWAGGER_HTML)
+    return HTMLResponse(_render_static_page(DOCS_PATH))
 
 
 async def inventory_page(request: Request) -> HTMLResponse:
-    return HTMLResponse(INVENTORY_PATH.read_text(encoding='utf-8'))
+    return HTMLResponse(_render_static_page(INVENTORY_PATH))
 
 
 async def collection_page(request: Request) -> HTMLResponse:
-    return HTMLResponse(COLLECTION_PATH.read_text(encoding='utf-8'))
+    return HTMLResponse(_render_static_page(COLLECTION_PATH))
+
+
+async def theme_css(request: Request) -> Response:
+    return Response(THEME_CSS_PATH.read_text(encoding='utf-8'), media_type='text/css')
+
+
+async def nav_js(request: Request) -> Response:
+    return Response(
+        NAV_JS_PATH.read_text(encoding='utf-8'), media_type='application/javascript'
+    )
 
 
 async def openapi_spec(request: Request) -> Response:
@@ -202,18 +216,16 @@ async def openapi_spec(request: Request) -> Response:
 
 
 async def oauth_revoke(request: Request) -> RedirectResponse:
-    """Clear the stored OAuth token and redirect to the home page."""
-    global _oauth_access
-    _oauth_access = None
-    _clear_token()
-    return RedirectResponse('/')
+    """Clear this browser's OAuth session and redirect to the home page."""
+    request.session.clear()
+    return RedirectResponse(f'{BASE_URL}/')
 
 
 async def oauth_status(request: Request) -> JSONResponse:
-    if _oauth_access:
-        username = _oauth_access.get('username', '')
+    if request.session.get('token'):
+        username = request.session.get('username', '')
         if not username:
-            username = await _fetch_username()
+            username = await _fetch_username(request)
         return JSONResponse(
             {'authorized': True, 'configured': True, 'username': username}
         )
@@ -222,13 +234,12 @@ async def oauth_status(request: Request) -> JSONResponse:
     )
 
 
-async def _fetch_username() -> str:
-    """Fetch the authenticated user's username from /oauth/identity and cache it."""
-    global _oauth_access
+async def _fetch_username(request: Request) -> str:
+    """Fetch the authenticated user's username from /oauth/identity and cache it in the session."""
     try:
         oauth_client = _oauth1_client(
-            resource_owner_key=_oauth_access['token'],
-            resource_owner_secret=_oauth_access['secret'],
+            resource_owner_key=request.session['token'],
+            resource_owner_secret=request.session['secret'],
         )
         _, headers, _ = oauth_client.sign(
             f'{DISCOGS_BASE}/oauth/identity', http_method='GET'
@@ -237,8 +248,7 @@ async def _fetch_username() -> str:
             resp = await http.get(f'{DISCOGS_BASE}/oauth/identity', headers=headers)
         if resp.status_code == 200:
             username = resp.json().get('username', '')
-            _oauth_access['username'] = username
-            _save_token(_oauth_access)
+            request.session['username'] = username
             return username
     except Exception:
         logger.warning('Could not fetch username from /oauth/identity')
@@ -290,8 +300,6 @@ async def oauth_start(request: Request) -> Response:
 
 async def oauth_callback(request: Request) -> HTMLResponse:
     """Step 2: exchange request token + verifier for an access token."""
-    global _oauth_access
-
     oauth_token = request.query_params.get('oauth_token', '')
     oauth_verifier = request.query_params.get('oauth_verifier', '')
 
@@ -329,21 +337,31 @@ async def oauth_callback(request: Request) -> HTMLResponse:
         )
 
     params = dict(parse_qsl(resp.text))
-    _oauth_access = {
-        'token': params.get('oauth_token', ''),
-        'secret': params.get('oauth_token_secret', ''),
-        'username': params.get('oauth_username', ''),
-    }
-    _save_token(_oauth_access)
-    logger.info('OAuth: authorized as %s', _oauth_access['username'])
+    username = params.get('oauth_username', '')
+    request.session['token'] = params.get('oauth_token', '')
+    request.session['secret'] = params.get('oauth_token_secret', '')
+    request.session['username'] = username
+    logger.info('OAuth: authorized as %s', username)
 
-    return HTMLResponse(_SUCCESS_HTML.format(username=_oauth_access['username']))
+    return HTMLResponse(
+        _render_static_page(
+            SUCCESS_PATH, BASE_URL=BASE_URL, USERNAME=html.escape(username)
+        )
+    )
 
 
 async def proxy(request: Request) -> Response:
     """Transparent proxy: forward request → Discogs → return response."""
     path = request.path_params.get('path', '')
     url = f'{DISCOGS_BASE}/{path}'
+
+    cache_key = None
+    if request.method == 'GET' and any(p.match(path) for p in _CACHEABLE_GET_PATHS):
+        qs = urlencode(sorted(request.query_params.items()))
+        cache_key = f'discogs:{path}' + (f'?{qs}' if qs else '')
+        cached = await _cache_get(cache_key)
+        if cached is not None:
+            return Response(cached, media_type='application/json')
 
     headers = {
         k: v
@@ -355,13 +373,15 @@ async def proxy(request: Request) -> Response:
         'discogs-api-client-proxy/1.0 +https://github.com/you/discogs-api-client',
     )
 
-    # Auto-sign with OAuth when authorized and no manual Authorization header is present.
-    if _oauth_access and 'authorization' not in {k.lower() for k in headers}:
+    # Auto-sign with OAuth when this browser's session is authorized and no
+    # manual Authorization header is present.
+    token = request.session.get('token')
+    secret = request.session.get('secret')
+    if token and secret and 'authorization' not in {k.lower() for k in headers}:
         params = dict(request.query_params)
         sign_url = url + ('?' + urlencode(params) if params else '')
         oauth_client = _oauth1_client(
-            resource_owner_key=_oauth_access['token'],
-            resource_owner_secret=_oauth_access['secret'],
+            resource_owner_key=token, resource_owner_secret=secret
         )
         _, oauth_headers, _ = oauth_client.sign(
             sign_url, http_method=request.method.upper()
@@ -387,6 +407,8 @@ async def proxy(request: Request) -> Response:
     }
 
     logger.info('← %s %s', resp.status_code, url)
+    if cache_key and resp.status_code == 200:
+        await _cache_set(cache_key, resp.content)
     return Response(resp.content, status_code=resp.status_code, headers=resp_headers)
 
 
@@ -394,12 +416,15 @@ async def proxy(request: Request) -> Response:
 # App
 # ---------------------------------------------------------------------------
 app = Starlette(
+    lifespan=lifespan,
     routes=[
-        Route('/', swagger_ui),
+        Route('/', home_page),
         Route('/docs', swagger_ui),
         Route('/openapi.json', openapi_spec),
         Route('/inventory', inventory_page),
         Route('/collection', collection_page),
+        Route('/theme.css', theme_css),
+        Route('/nav.js', nav_js),
         Route('/oauth/status', oauth_status),
         Route('/oauth/start', oauth_start),
         Route('/oauth/callback', oauth_callback),
@@ -409,7 +434,16 @@ app = Starlette(
             proxy,
             methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'],
         ),
-    ]
+    ],
+)
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie='discogs_session',
+    max_age=60 * 60 * 24 * 365,  # 1 year — Discogs access tokens don't expire
+    same_site='lax',
+    https_only=BASE_URL.startswith('https://'),
 )
 
 app.add_middleware(
@@ -421,12 +455,17 @@ app.add_middleware(
 )
 
 if __name__ == '__main__':
-    print(f'\n  Swagger UI  → http://localhost:{PORT}/')
+    print(f'\n  Home        → http://localhost:{PORT}/')
+    print(f'  Swagger UI  → http://localhost:{PORT}/docs')
     print(f'  Inventory   → http://localhost:{PORT}/inventory')
     print(f'  Collection  → http://localhost:{PORT}/collection')
     if CONSUMER_KEY:
         print(f'  OAuth start → http://localhost:{PORT}/oauth/start')
     else:
         print('  OAuth: set DISCOGS_CONSUMER_KEY + DISCOGS_CONSUMER_SECRET to enable')
+    if REDIS_URL:
+        print(f'  Cache       → {REDIS_URL}')
+    else:
+        print('  Cache: set DISCOGS_REDIS_URL to cache release lookups')
     print()
     uvicorn.run(app, host='0.0.0.0', port=PORT, log_level='warning')

@@ -4,144 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Discogs Inventory</title>
+  <link rel="stylesheet" href="theme.css?v=__THEME_CSS_VERSION__">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1a1a2e; background: #f5f5f5; }
-
-    /* ── Top bar ── */
-    .topbar { background: #1a1a2e; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
-    .topbar h1 { font-size: 17px; font-weight: 700; }
-    .topbar a { color: #90a4ae; font-size: 13px; text-decoration: none; }
-    .topbar a:hover { color: #fff; }
-
-    /* ── Controls ── */
-    .controls { background: #fff; border-bottom: 1px solid #ddd; padding: 10px 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .controls label { font-size: 12px; color: #666; font-weight: 500; }
-    .controls input[type=text] { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 14px; width: 160px; outline: none; }
-    .controls input[type=text]:focus { border-color: #1565c0; }
-    .controls select { border: 1px solid #ccc; border-radius: 4px; padding: 6px 8px; font-size: 13px; background: #fff; outline: none; }
-    .sep { width: 1px; height: 24px; background: #e0e0e0; margin: 0 2px; }
-    .btn { background: #1565c0; color: #fff; border: none; border-radius: 4px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-weight: 500; white-space: nowrap; }
-    .btn:hover { background: #0d47a1; }
-    .btn.btn-success { background: #2e7d32; }
-    .btn.btn-success:hover { background: #1b5e20; }
-    .btn.btn-danger { background: #c62828; }
-    .btn.btn-danger:hover { background: #b71c1c; }
-    .btn.btn-sm { padding: 4px 10px; font-size: 12px; }
-    .btn.btn-icon { padding: 4px 7px; font-size: 13px; border-radius: 3px; }
-    .ml-auto { margin-left: auto; }
-
-    /* ── Bulk toolbar ── */
-    #bulk-bar { background: #e8eaf6; border-bottom: 1px solid #c5cae9; padding: 8px 20px;
-                display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
-    #bulk-bar.visible { display: flex; }
-    #bulk-count { font-weight: 600; font-size: 13px; color: #283593; }
-
-    /* ── Info bar ── */
-    .infobar { padding: 7px 20px; font-size: 13px; color: #555; background: #fafafa; border-bottom: 1px solid #eee; }
-
-    /* ── Table ── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: #fff; }
-    thead th { background: #f0f0f5; text-align: left; padding: 8px 10px; font-size: 12px; font-weight: 700;
-               color: #444; border-bottom: 2px solid #ddd; white-space: nowrap; }
-    td { padding: 8px 10px; border-bottom: 1px solid #efefef; vertical-align: middle; }
-    tr:hover td { background: #fafafe; }
-    tr.selected td { background: #e8eaf6; }
-
-    /* ── Checkbox ── */
-    input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #1565c0; }
-    .col-check { width: 36px; }
-    .col-thumb { width: 58px; }
-    .col-actions { width: 80px; white-space: nowrap; }
-
-    /* ── Thumbnail ── */
-    .thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 3px; display: block; }
-    .thumb-ph { width: 50px; height: 50px; background: #e8e8e8; border-radius: 3px; display: flex;
-                align-items: center; justify-content: center; font-size: 22px; color: #ccc; }
-
-    /* ── Release info ── */
-    .r-artist { font-weight: 600; }
-    .r-meta { font-size: 12px; color: #888; margin-top: 2px; }
-    .r-link { font-size: 12px; color: #1565c0; text-decoration: none; }
-    .r-link:hover { text-decoration: underline; }
-
     /* ── Condition badge ── */
     .cond { display: inline-block; padding: 2px 5px; border-radius: 3px; font-size: 11px; font-weight: 700;
             color: #fff; white-space: nowrap; line-height: 1.6; }
     .cond-row { display: flex; flex-direction: column; gap: 3px; }
-    .cond-label { font-size: 11px; color: #aaa; }
+    .cond-label { font-size: 11px; color: var(--text-muted); }
 
     /* ── Price ── */
     .price { font-weight: 700; white-space: nowrap; font-size: 14px; }
-    .offers { font-size: 11px; color: #1565c0; }
+    .offers { font-size: 11px; color: var(--accent); }
 
     /* ── Status pill ── */
     .status-pill { display: inline-block; font-size: 11px; padding: 1px 5px; border-radius: 10px;
-                   border: 1px solid #ccc; color: #666; margin-top: 2px; }
-
-    /* ── Pagination ── */
-    .pagination { padding: 14px 20px; display: flex; gap: 5px; justify-content: center; flex-wrap: wrap; }
-    .pagination button { border: 1px solid #ccc; background: #fff; border-radius: 4px; padding: 5px 10px;
-                         font-size: 13px; cursor: pointer; min-width: 34px; }
-    .pagination button:hover:not(:disabled) { background: #e8eaf6; }
-    .pagination button.active { background: #1565c0; color: #fff; border-color: #1565c0; font-weight: 700; }
-    .pagination button:disabled { opacity: .35; cursor: default; }
-
-    /* ── States ── */
-    .state { text-align: center; padding: 70px 20px; color: #999; font-size: 15px; }
-    .state.error { color: #c62828; }
-
-    /* ── Modal ── */
-    #modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
-                     z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
-    #modal-overlay.open { display: flex; }
-    .modal { background: #fff; border-radius: 6px; width: 100%; max-width: 560px; max-height: 90vh;
-             display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,.25); }
-    .modal-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 10px; }
-    .modal-header h2 { font-size: 16px; flex: 1; }
-    .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #888; line-height: 1; padding: 0 4px; }
-    .modal-close:hover { color: #333; }
-    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-    .modal-footer { padding: 14px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; }
-
-    /* ── Form ── */
-    .form-row { margin-bottom: 14px; }
-    .form-row label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
-    .form-row input[type=text], .form-row input[type=number], .form-row select, .form-row textarea {
-      width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 7px 10px; font-size: 14px; outline: none; font-family: inherit; }
-    .form-row input:focus, .form-row select:focus, .form-row textarea:focus { border-color: #1565c0; }
-    .form-row textarea { resize: vertical; min-height: 70px; }
-    .form-hint { font-size: 11px; color: #999; margin-top: 3px; }
-    .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .form-check { display: flex; align-items: center; gap: 8px; }
-    .form-check input { width: auto; }
-    .form-section { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase;
-                    letter-spacing: .5px; margin: 16px 0 10px; padding-bottom: 4px; border-bottom: 1px solid #eee; }
-    .release-info { background: #f5f5f5; border-radius: 4px; padding: 8px 12px; font-size: 13px;
-                    margin-bottom: 14px; color: #444; }
-
-    /* ── Toasts ── */
-    #toasts { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
-    .toast { background: #333; color: #fff; padding: 10px 16px; border-radius: 5px; font-size: 13px;
-             opacity: 0; transform: translateX(20px); transition: all .25s; max-width: 320px; }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast.toast-success { background: #2e7d32; }
-    .toast.toast-error { background: #c62828; }
-    .toast.toast-info { background: #1565c0; }
+                   border: 1px solid var(--border); color: var(--text-muted); margin-top: 2px; }
 
     /* ── Progress bar for bulk ops ── */
-    #progress-bar { display: none; background: #e3f2fd; border-bottom: 1px solid #90caf9; padding: 8px 20px; font-size: 13px; color: #1565c0; }
+    #progress-bar { display: none; background: var(--tag-bg); border-bottom: 1px solid var(--border); padding: 8px 20px; font-size: 13px; color: var(--accent); }
     #progress-bar.visible { display: block; }
   </style>
 </head>
 <body>
 
-<div class="topbar">
-  <h1>Discogs Inventory</h1>
-  <a id="swagger-link" href="#">← Swagger UI</a>
-  <a id="collection-link" href="#">Collection →</a>
-</div>
+<header class="site-header">
+  <a href="." class="header-name">Discogs <span>Inventory</span></a>
+  <div class="header-right" id="site-nav">Checking sign-in status…</div>
+</header>
 
 <div class="controls">
   <label>Username</label>
@@ -150,7 +39,7 @@
   <div class="sep"></div>
 
   <label>Status</label>
-  <select id="status" onchange="load(1)">
+  <select id="status" onchange="onStatusChange()">
     <option value="For Sale" selected>For Sale</option>
     <option value="">All</option>
     <option value="Draft">Draft</option>
@@ -161,33 +50,30 @@
 
   <div class="sep"></div>
 
-  <label>Sort</label>
-  <select id="sort" onchange="load(1)">
-    <option value="listed">Listed</option>
-    <option value="artist">Artist</option>
-    <option value="price">Price</option>
-    <option value="item">Item</option>
-    <option value="label">Label</option>
-    <option value="catno">Cat#</option>
-    <option value="status">Status</option>
-    <option value="location">Location</option>
-  </select>
-  <select id="sort_order" onchange="load(1)">
-    <option value="desc">↓ Desc</option>
-    <option value="asc">↑ Asc</option>
-  </select>
-
-  <div class="sep"></div>
-
   <label>Per page</label>
-  <select id="per_page" onchange="load(1)">
+  <select id="per_page" onchange="onControlChange()">
     <option value="25">25</option>
     <option value="50" selected>50</option>
     <option value="100">100</option>
   </select>
 
-  <button class="btn" onclick="load(1)">Load</button>
+  <button class="btn" onclick="loadAll()">Load</button>
+  <button class="btn btn-sm" id="filters-toggle-btn" onclick="enableFilters()">🔍 Enable filters</button>
   <button class="btn btn-success ml-auto" onclick="openModal('create')">+ New Listing</button>
+</div>
+
+<div class="filters-bar" id="filters-row">
+  <label>Artist</label>
+  <select id="filter-artist" onchange="onFilterChange('artist', this.value)"><option value="">All Artist</option></select>
+  <label>Format</label>
+  <select id="filter-format" onchange="onFilterChange('format', this.value)"><option value="">All Format</option></select>
+  <label>Condition</label>
+  <select id="filter-condition" onchange="onFilterChange('condition', this.value)"><option value="">All Condition</option></select>
+  <label>Location</label>
+  <select id="filter-location" onchange="onFilterChange('location', this.value)"><option value="">All Location</option></select>
+  <label>Audio</label>
+  <select id="filter-audio" onchange="onFilterChange('audio', this.value)"><option value="">All Audio</option></select>
+  <button class="btn btn-sm" style="margin-left:auto" onclick="clearFilters()">✕ Clear filters</button>
 </div>
 
 <div id="bulk-bar">
@@ -218,7 +104,7 @@
         <input type="hidden" name="mode">
 
         <div class="form-row" id="field-release-id">
-          <label>Release ID <span style="color:#c62828">*</span></label>
+          <label>Release ID <span style="color:var(--danger)">*</span></label>
           <input type="text" name="release_id" placeholder="e.g. 249504">
           <div class="form-hint">Find it in the Discogs release URL: discogs.com/release/<strong>249504</strong></div>
         </div>
@@ -226,7 +112,7 @@
         <div class="form-section">Grading</div>
         <div class="form-2col">
           <div class="form-row">
-            <label>Media Condition <span style="color:#c62828">*</span></label>
+            <label>Media Condition <span style="color:var(--danger)">*</span></label>
             <select name="condition">
               <option value="">— select —</option>
               <option>Mint (M)</option>
@@ -261,11 +147,11 @@
         <div class="form-section">Sale</div>
         <div class="form-2col">
           <div class="form-row">
-            <label>Price <span style="color:#c62828">*</span></label>
+            <label>Price <span style="color:var(--danger)">*</span></label>
             <input type="text" name="price" placeholder="9.99">
           </div>
           <div class="form-row">
-            <label>Status <span style="color:#c62828">*</span></label>
+            <label>Status <span style="color:var(--danger)">*</span></label>
             <select name="status">
               <option value="For Sale">For Sale</option>
               <option value="Draft">Draft</option>
@@ -280,7 +166,7 @@
         </div>
 
         <div class="form-row">
-          <label>Comments <span style="color:#888;font-weight:400">(public — shown to buyers)</span></label>
+          <label>Comments <span style="color:var(--text-muted);font-weight:400">(public — shown to buyers)</span></label>
           <textarea name="comments" placeholder="Condition notes, pressing info…"></textarea>
         </div>
 
@@ -308,7 +194,7 @@
       </form>
     </div>
     <div class="modal-footer">
-      <button class="btn" style="background:#757575" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
       <button class="btn btn-success" id="modal-save-btn" onclick="submitModal()">Save</button>
     </div>
   </div>
@@ -316,11 +202,11 @@
 
 <div id="toasts"></div>
 
+<script src="nav.js?v=__NAV_JS_VERSION__"></script>
 <script>
 // ── Base URL (works on any subpath) ─────────────────────────────────────────
 const BASE = window.location.pathname.replace(/\/inventory\/?$/, '');
-document.getElementById('swagger-link').href = BASE || '/';
-document.getElementById('collection-link').href = `${BASE}/collection`;
+initDiscogsNav('site-nav');
 
 // ── Constants ───────────────────────────────────────────────────────────────
 const COND_COLOR = {
@@ -362,6 +248,211 @@ let _listings = [];        // current page
 let _selected = new Set(); // selected listing IDs
 let _pagination = {};
 let _currentPage = 1;
+let _sort = 'listed';
+let _sortOrder = 'desc';
+
+// Discogs' inventory endpoint only accepts these as the `sort` query param
+// (its 'label' key exists too, but there's no label-name field in the
+// response to attach a column to, so it's omitted here). Format/Year/
+// Condition/Qty have no server-side sort, so those are sorted client-side
+// (current page only) instead — same approach as collection.html.
+const SERVER_SORT_KEYS = new Set(['artist', 'item', 'price', 'catno', 'audio', 'status', 'location', 'listed']);
+const DEFAULT_DESC_KEYS = new Set(['listed', 'price']);
+const COLUMNS = [
+  { key: 'artist', label: 'Artist' },
+  { key: 'item', label: 'Item' },
+  { key: 'format', label: 'Format', clientOnly: true },
+  { key: 'catno', label: 'Cat#' },
+  { key: 'year', label: 'Year', clientOnly: true },
+  { key: 'condition', label: 'Condition', clientOnly: true },
+  { key: 'price', label: 'Price' },
+  { key: 'status', label: 'Status' },
+  { key: 'audio', label: 'Audio' },
+  { key: 'location', label: 'Location' },
+  { key: 'qty', label: 'Qty', clientOnly: true },
+  { key: 'ships_from', label: 'Ships from', noSort: true },
+  { key: 'listed', label: 'Listed' },
+];
+
+// [{key, order}, ...] in priority order; chain[0] mirrors _sort/_sortOrder.
+let _sortChain = [{ key: 'listed', order: 'desc' }];
+
+// Remembers the last sort the user picked (per browser, via localStorage) so
+// it's the default next time — an explicit ?sort= in the URL still wins.
+const SORT_STORAGE_KEY = 'discogs_inventory_sort';
+function saveSortToStorage() {
+  try { localStorage.setItem(SORT_STORAGE_KEY, JSON.stringify(_sortChain)); } catch { /* storage unavailable */ }
+}
+function loadSortFromStorage() {
+  try {
+    const chain = JSON.parse(localStorage.getItem(SORT_STORAGE_KEY));
+    if (Array.isArray(chain) && chain.length && chain[0]?.key && chain[0]?.order) return chain;
+  } catch { /* ignore malformed/missing value */ }
+  return null;
+}
+
+function sortValueOf(item, key) {
+  const rel = item.release ?? {};
+  switch (key) {
+    case 'artist': return (rel.artist ?? '').toLowerCase();
+    case 'item': return (rel.title ?? rel.description ?? '').toLowerCase();
+    case 'format': return (rel.format ?? '').toLowerCase();
+    case 'catno': return (rel.catalog_number ?? '').toLowerCase();
+    case 'year': return Number(rel.year) || 0;
+    case 'condition': return condShort(item.condition) || '';
+    case 'price': return Number(item.price?.value) || 0;
+    case 'status': return item.status ?? '';
+    case 'audio': return item.audio ? 1 : 0;
+    case 'location': return (item.location ?? '').toLowerCase();
+    case 'qty': return Number(item.quantity) || 0;
+    case 'listed': return item.posted ?? '';
+    default: return '';
+  }
+}
+
+// Sorts an arbitrary array in place by the full chain (primary + tie-breakers).
+function sortItems(arr) {
+  const chain = _sortChain;
+  arr.sort((a, b) => {
+    for (const { key, order } of chain) {
+      const dir = order === 'asc' ? 1 : -1;
+      const av = sortValueOf(a, key), bv = sortValueOf(b, key);
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+    }
+    return 0;
+  });
+  return arr;
+}
+function applyClientSort() { sortItems(_listings); }
+
+// Global filters: Discogs has no filter-by-format/condition/location/audio
+// query param, so filtering means fetching the *entire* status-filtered
+// inventory into memory first (unlike sort, which stays page-scoped) —
+// opt-in via "Enable filters" since large inventories take many requests.
+// null = not loaded.
+let _allListings = null;
+let _activeFilters = {};
+const FILTER_COLUMNS = [
+  { key: 'artist', label: 'Artist' },
+  { key: 'format', label: 'Format' },
+  { key: 'condition', label: 'Condition' },
+  { key: 'location', label: 'Location' },
+  { key: 'audio', label: 'Audio' },
+];
+
+function filterValueOf(item, key) {
+  switch (key) {
+    case 'artist': return item.release?.artist ? [item.release.artist] : [];
+    case 'format': return item.release?.format ? [item.release.format] : [];
+    case 'condition': return item.condition ? [item.condition] : [];
+    case 'location': return item.location ? [item.location] : [];
+    case 'audio': return [item.audio ? 'Yes' : 'No'];
+    default: return [];
+  }
+}
+
+function matchesActiveFilters(item) {
+  return FILTER_COLUMNS.every(c => {
+    const active = _activeFilters[c.key];
+    return !active || filterValueOf(item, c.key).includes(active);
+  });
+}
+
+function buildFilterOptions() {
+  for (const c of FILTER_COLUMNS) {
+    const values = new Set();
+    for (const item of _allListings) filterValueOf(item, c.key).forEach(v => values.add(v));
+    const sorted = [...values].sort((a, b) => a.localeCompare(b));
+    const sel = document.getElementById(`filter-${c.key}`);
+    if (sel) sel.innerHTML = `<option value="">All ${esc(c.label)}</option>` + sorted.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  }
+}
+
+function resetFilters() {
+  _allListings = null;
+  _activeFilters = {};
+  const row = document.getElementById('filters-row');
+  if (row) row.classList.remove('visible');
+  const btn = document.getElementById('filters-toggle-btn');
+  if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = '🔍 Enable filters'; }
+}
+
+async function enableFilters() {
+  const username = document.getElementById('username').value.trim();
+  if (!username) { alert('Enter a username.'); return; }
+  const status = document.getElementById('status').value;
+  const btn = document.getElementById('filters-toggle-btn');
+  btn.disabled = true;
+
+  const items = [];
+  try {
+    let page = 1, pages = 1;
+    do {
+      btn.textContent = `Loading… ${items.length}`;
+      const apiQs = new URLSearchParams({ sort: 'listed', sort_order: 'desc', per_page: '100', page });
+      if (status) apiQs.set('status', status);
+      const resp = await fetch(`${BASE}/users/${encodeURIComponent(username)}/inventory?${apiQs}`);
+      if (!resp.ok) throw new Error('request failed');
+      const data = await resp.json();
+      items.push(...(data.listings ?? []));
+      pages = data.pagination?.pages ?? 1;
+      page++;
+    } while (page <= pages);
+  } catch {
+    toast("Couldn't load the full inventory for filtering", 'error');
+    btn.disabled = false;
+    btn.textContent = '🔍 Enable filters';
+    return;
+  }
+
+  _allListings = items;
+  buildFilterOptions();
+  document.getElementById('filters-row').classList.add('visible');
+  btn.style.display = 'none';
+  renderFilteredPage(1);
+}
+
+function onFilterChange(key, value) {
+  _activeFilters[key] = value;
+  renderFilteredPage(1);
+}
+
+function clearFilters() {
+  _activeFilters = {};
+  FILTER_COLUMNS.forEach(c => { const el = document.getElementById(`filter-${c.key}`); if (el) el.value = ''; });
+  renderFilteredPage(1);
+}
+
+function renderFilteredPage(page) {
+  const filtered = sortItems(_allListings.filter(matchesActiveFilters));
+  const perPage = Number(document.getElementById('per_page').value);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+  page = Math.min(Math.max(1, page), totalPages);
+  _currentPage = page;
+  _listings = filtered.slice((page - 1) * perPage, page * perPage);
+  _pagination = { page, pages: totalPages, per_page: perPage, items: filtered.length };
+  clearSelection();
+  renderTablePage();
+}
+
+// Called when username/status changes — the loaded full dataset (if any) no
+// longer matches, so drop back to normal server-paginated mode.
+function onStatusChange() {
+  resetFilters();
+  load(1);
+}
+
+// Called for controls that don't invalidate an already-loaded full dataset
+// (currently just per_page) — re-paginate in whichever mode is active.
+function onControlChange() {
+  goToPage(1);
+}
+
+function goToPage(page) {
+  if (_allListings) renderFilteredPage(page);
+  else load(page);
+}
 
 // ── Utils ───────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -467,11 +558,56 @@ function renderThumb(url, title) {
   return `<div class="thumb-ph">♪</div>`;
 }
 
+function visibleColumns() {
+  return COLUMNS;
+}
+
+// Inventory listings only carry a flat artist *name* and a catalog_number —
+// no artist_id/label_id (unlike the Collection API). To make Artist/Cat#
+// clickable we lazily fetch the full release (GET /releases/{id}, which does
+// have real artists[]/labels[] with ids) on click rather than for every row
+// up front, to avoid an N+1 request burst when a page has up to 100 rows.
+const _releaseCache = new Map();
+function fetchReleaseCached(releaseId) {
+  if (!_releaseCache.has(releaseId)) {
+    _releaseCache.set(releaseId, fetch(`${BASE}/releases/${releaseId}`).then(r => r.ok ? r.json() : null).catch(() => null));
+  }
+  return _releaseCache.get(releaseId);
+}
+
+async function openArtistPage(event, el) {
+  event.preventDefault();
+  const releaseId = el.dataset.releaseId;
+  const name = el.dataset.name;
+  const tab = window.open('', '_blank');
+  const rel = await fetchReleaseCached(releaseId);
+  const artist = rel?.artists?.find(a => a.name === name) ?? rel?.artists?.[0];
+  if (!tab) return;
+  tab.location.href = artist
+    ? `https://www.discogs.com/artist/${artist.id}`
+    : `https://www.discogs.com/search/?q=${encodeURIComponent(name)}&type=artist`;
+}
+
+async function openLabelPage(event, el) {
+  event.preventDefault();
+  const releaseId = el.dataset.releaseId;
+  const tab = window.open('', '_blank');
+  const rel = await fetchReleaseCached(releaseId);
+  const label = rel?.labels?.[0];
+  if (!tab) return;
+  tab.location.href = label ? `https://www.discogs.com/label/${label.id}` : `https://www.discogs.com/release/${releaseId}`;
+}
+
+function lazyLinkOrText(releaseId, text, handler, cls, extraAttr = '') {
+  const t = esc(text);
+  if (!releaseId || !text) return t;
+  return `<a class="${cls}" href="#" data-release-id="${releaseId}" ${extraAttr} onclick="${handler}(event, this)">${t}</a>`;
+}
+
 function renderRow(item) {
   const rel = item.release ?? {};
   const artist = rel.artist ?? '';
   const title  = rel.title ?? rel.description ?? '';
-  const meta   = [rel.format, rel.catalog_number, rel.year].filter(Boolean).join(' · ');
   const listingUrl = item.uri ?? `https://www.discogs.com/sell/item/${item.id}`;
   const releaseUrl = rel.id ? `https://www.discogs.com/release/${rel.id}` : null;
   const isSelected = _selected.has(item.id);
@@ -481,13 +617,25 @@ function renderRow(item) {
     ${item.sleeve_condition ? `<div><span class="cond-label">sleeve</span> ${condBadge(item.sleeve_condition)}</div>` : ''}
   </div>`;
 
-  const statusPill = (item.status && item.status !== 'For Sale')
-    ? `<span class="status-pill">${esc(item.status)}</span>` : '';
-
-  const ownerMeta = [
-    item.location && `📦 ${esc(item.location)}`,
-    item.quantity > 1 && `qty: ${item.quantity}`,
-  ].filter(Boolean).map(s => `<div class="r-meta">${s}</div>`).join('');
+  const cellsByKey = {
+    artist: lazyLinkOrText(rel.id, artist, 'openArtistPage', 'cell-link r-artist', `data-name="${esc(artist)}"`),
+    item: `${releaseUrl ? `<a class="cell-link" href="${releaseUrl}" target="_blank">${esc(title)}</a>` : esc(title)}
+      <div style="margin-top:3px">
+        <a class="r-link" href="${listingUrl}" target="_blank">#${item.id}</a>
+      </div>`,
+    format: esc(rel.format ?? ''),
+    catno: lazyLinkOrText(rel.id, rel.catalog_number, 'openLabelPage', 'cell-link'),
+    year: esc(rel.year ?? ''),
+    condition: condBlock,
+    price: `<div class="price">${fmtPrice(item.price)}</div>${item.allow_offers ? '<div class="offers">offers OK</div>' : ''}`,
+    status: item.status ? `<span class="status-pill">${esc(item.status)}</span>` : '',
+    audio: item.audio ? '🎵' : '',
+    location: esc(item.location ?? ''),
+    qty: item.quantity != null ? esc(item.quantity) : '',
+    ships_from: `<span style="white-space:nowrap;color:var(--text-muted)">${esc(item.ships_from ?? '')}</span>`,
+    listed: `<span style="color:var(--text-muted);white-space:nowrap">${fmtDate(item.posted)}</span>`,
+  };
+  const cells = visibleColumns().map(c => `<td>${cellsByKey[c.key] ?? ''}</td>`).join('');
 
   return `<tr id="row-${item.id}" class="${isSelected ? 'selected' : ''}">
     <td class="col-check">
@@ -495,26 +643,7 @@ function renderRow(item) {
         onchange="toggleSelect(${item.id}, this.checked)">
     </td>
     <td class="col-thumb">${renderThumb(rel.thumbnail, title)}</td>
-    <td>
-      <div>
-        ${artist ? `<span class="r-artist">${esc(artist)}</span> – ` : ''}
-        <span>${esc(title)}</span>
-      </div>
-      ${meta ? `<div class="r-meta">${esc(meta)}</div>` : ''}
-      ${ownerMeta}
-      <div style="margin-top:3px">
-        <a class="r-link" href="${listingUrl}" target="_blank">#${item.id}</a>
-        ${releaseUrl ? `&nbsp;·&nbsp;<a class="r-link" href="${releaseUrl}" target="_blank">release</a>` : ''}
-        ${statusPill}
-      </div>
-    </td>
-    <td>${condBlock}</td>
-    <td>
-      <div class="price">${fmtPrice(item.price)}</div>
-      ${item.allow_offers ? '<div class="offers">offers OK</div>' : ''}
-    </td>
-    <td style="white-space:nowrap;color:#555">${esc(item.ships_from ?? '')}</td>
-    <td style="color:#888;white-space:nowrap">${fmtDate(item.posted)}</td>
+    ${cells}
     <td class="col-actions">
       <button class="btn btn-icon" title="Edit" onclick="openModal('edit', ${item.id})">✏</button>
       <button class="btn btn-icon btn-danger" title="Delete" onclick="deleteListing(${item.id})">🗑</button>
@@ -527,34 +656,102 @@ function rerenderTbody() {
   if (tbody) tbody.innerHTML = _listings.map(renderRow).join('');
 }
 
+function sortBadge(key) {
+  const idx = _sortChain.findIndex(s => s.key === key);
+  if (idx === -1) return '';
+  const arrow = _sortChain[idx].order === 'asc' ? '▲' : '▼';
+  const num = _sortChain.length > 1 ? `<sup>${idx + 1}</sup>` : '';
+  return ` ${arrow}${num}`;
+}
+
+function renderTheadRow() {
+  const cells = visibleColumns().map(c => {
+    if (c.noSort) return `<th>${esc(c.label)}</th>`;
+    const title = c.clientOnly
+      ? 'Sorts only the items on the current page — not supported by the Discogs API for the whole inventory'
+      : 'Click to sort, Shift+click to add as a secondary sort';
+    return `<th class="sortable" onclick="onHeaderClick('${c.key}', event)" title="${title}">${esc(c.label)}${c.clientOnly ? ' <span class="col-note">(page)</span>' : ''}${sortBadge(c.key)}</th>`;
+  }).join('');
+  return `<tr>
+    <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleSelectAll(this.checked)"></th>
+    <th class="col-thumb"></th>
+    ${cells}
+    <th></th>
+  </tr>`;
+}
+
+function refreshThead() {
+  const thead = document.querySelector('#root table thead');
+  if (thead) thead.innerHTML = renderTheadRow();
+}
+
+// Plain click: replace the whole sort with just this column. Shift+click:
+// append as a tie-breaker (or toggle its direction if already in the chain) —
+// reorders the current page only, since the API has no multi-column sort.
+function onHeaderClick(key, event) {
+  if (event?.shiftKey) {
+    const existing = _sortChain.find(s => s.key === key);
+    if (existing) existing.order = existing.order === 'asc' ? 'desc' : 'asc';
+    else _sortChain.push({ key, order: DEFAULT_DESC_KEYS.has(key) ? 'desc' : 'asc' });
+    saveSortToStorage();
+    applyClientSort();
+    rerenderTbody();
+    refreshThead();
+    return;
+  }
+
+  if (_sort === key) {
+    _sortOrder = _sortOrder === 'asc' ? 'desc' : 'asc';
+  } else {
+    _sort = key;
+    _sortOrder = DEFAULT_DESC_KEYS.has(key) ? 'desc' : 'asc';
+  }
+  _sortChain = [{ key: _sort, order: _sortOrder }];
+  saveSortToStorage();
+
+  if (SERVER_SORT_KEYS.has(key)) {
+    load(1);
+  } else {
+    applyClientSort();
+    rerenderTbody();
+    refreshThead();
+  }
+}
+
 function renderPagination(pag, page) {
   const total = pag.pages ?? 1;
   if (total <= 1) return '';
   const parts = [];
-  parts.push(`<button onclick="load(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
+  parts.push(`<button onclick="goToPage(${page-1})" ${page<=1?'disabled':''}>‹</button>`);
   let lo = Math.max(1, page-3), hi = Math.min(total, lo+6);
   if (hi-lo < 6) lo = Math.max(1, hi-6);
-  if (lo > 1) { parts.push(`<button onclick="load(1)">1</button>`); if (lo>2) parts.push(`<button disabled>…</button>`); }
-  for (let p = lo; p <= hi; p++) parts.push(`<button class="${p===page?'active':''}" onclick="load(${p})">${p}</button>`);
-  if (hi < total) { if (hi<total-1) parts.push(`<button disabled>…</button>`); parts.push(`<button onclick="load(${total})">${total}</button>`); }
-  parts.push(`<button onclick="load(${page+1})" ${page>=total?'disabled':''}>›</button>`);
+  if (lo > 1) { parts.push(`<button onclick="goToPage(1)">1</button>`); if (lo>2) parts.push(`<button disabled>…</button>`); }
+  for (let p = lo; p <= hi; p++) parts.push(`<button class="${p===page?'active':''}" onclick="goToPage(${p})">${p}</button>`);
+  if (hi < total) { if (hi<total-1) parts.push(`<button disabled>…</button>`); parts.push(`<button onclick="goToPage(${total})">${total}</button>`); }
+  parts.push(`<button onclick="goToPage(${page+1})" ${page>=total?'disabled':''}>›</button>`);
   return `<div class="pagination">${parts.join('')}</div>`;
 }
 
 // ── Load ─────────────────────────────────────────────────────────────────────
+function loadAll() {
+  resetFilters();
+  load(1);
+}
+
 async function load(page) {
   const username = document.getElementById('username').value.trim();
   if (!username) { alert('Enter a username.'); return; }
 
-  const status    = document.getElementById('status').value;
-  const sort      = document.getElementById('sort').value;
-  const sortOrder = document.getElementById('sort_order').value;
-  const perPage   = document.getElementById('per_page').value;
+  const status  = document.getElementById('status').value;
+  const perPage = document.getElementById('per_page').value;
+  // Client-only sort keys (format/year/condition/qty) aren't valid API `sort`
+  // values — fall back to 'listed' server-side and re-sort after loading.
+  const apiSort = SERVER_SORT_KEYS.has(_sort) ? _sort : 'listed';
 
-  const qs = new URLSearchParams({ user: username, status, sort, sort_order: sortOrder, per_page: perPage, page });
+  const qs = new URLSearchParams({ user: username, status, sort: _sort, sort_order: _sortOrder, per_page: perPage, page });
   history.replaceState(null, '', '?' + qs);
 
-  const apiQs = new URLSearchParams({ sort, sort_order: sortOrder, per_page: perPage, page });
+  const apiQs = new URLSearchParams({ sort: apiSort, sort_order: _sortOrder, per_page: perPage, page });
   if (status) apiQs.set('status', status);
 
   document.getElementById('root').innerHTML = '<div class="state">Loading…</div>';
@@ -571,38 +768,36 @@ async function load(page) {
     const data = await resp.json();
     _pagination  = data.pagination ?? {};
     _listings    = data.listings ?? [];
+    applyClientSort();
     _currentPage = Number(_pagination.page ?? page);
-
-    const total = Number(_pagination.items ?? _listings.length);
-    const perP  = Number(perPage);
-    const from  = (_currentPage - 1) * perP + 1;
-    const to    = Math.min(_currentPage * perP, total);
-    const info  = total > 0 ? `Showing ${from}–${to} of ${total} listings` : 'No listings found';
-
-    if (!_listings.length) {
-      document.getElementById('root').innerHTML = `<div class="infobar">${info}</div><div class="state">No listings found.</div>`;
-      return;
-    }
-
-    document.getElementById('root').innerHTML =
-      `<div class="infobar">${info}</div>
-       <div class="table-wrap"><table>
-         <thead><tr>
-           <th class="col-check"><input type="checkbox" id="check-all" onchange="toggleSelectAll(this.checked)"></th>
-           <th class="col-thumb"></th>
-           <th>Release</th>
-           <th>Condition</th>
-           <th>Price</th>
-           <th>Ships from</th>
-           <th>Listed</th>
-           <th></th>
-         </tr></thead>
-         <tbody>${_listings.map(renderRow).join('')}</tbody>
-       </table></div>` +
-      renderPagination(_pagination, _currentPage);
+    renderTablePage();
   } catch(e) {
     document.getElementById('root').innerHTML = `<div class="state error">Network error: ${esc(e.message)}</div>`;
   }
+}
+
+// Renders the infobar + table + pagination from the current _listings/
+// _pagination/_currentPage — shared by the server-paginated path (load) and
+// the client-side filtered path (renderFilteredPage).
+function renderTablePage() {
+  const total = Number(_pagination.items ?? _listings.length);
+  const perP  = Number(_pagination.per_page ?? document.getElementById('per_page').value);
+  const from  = _listings.length ? (_currentPage - 1) * perP + 1 : 0;
+  const to    = Math.min(_currentPage * perP, total);
+  const info  = total > 0 ? `Showing ${from}–${to} of ${total} listings` : 'No listings found';
+
+  if (!_listings.length) {
+    document.getElementById('root').innerHTML = `<div class="infobar">${info}</div><div class="state">No listings found.</div>`;
+    return;
+  }
+
+  document.getElementById('root').innerHTML =
+    `<div class="infobar">${info} · click a column header to sort, Shift+click to add a secondary sort</div>
+     <div class="table-wrap"><table>
+       <thead>${renderTheadRow()}</thead>
+       <tbody>${_listings.map(renderRow).join('')}</tbody>
+     </table></div>` +
+    renderPagination(_pagination, _currentPage);
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -797,12 +992,19 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 // ── Restore URL state or auto-load the authenticated user ─────────────────────
 (async function () {
   const p = new URLSearchParams(location.search);
+  if (p.get('sort')) {
+    _sort      = p.get('sort');
+    _sortOrder = p.get('sort_order') ?? 'desc';
+    _sortChain = [{ key: _sort, order: _sortOrder }];
+  } else {
+    const stored = loadSortFromStorage();
+    if (stored) { _sortChain = stored; _sort = stored[0].key; _sortOrder = stored[0].order; }
+  }
+
   if (p.get('user')) {
-    document.getElementById('username').value    = p.get('user');
-    document.getElementById('status').value      = p.get('status') ?? 'For Sale';
-    document.getElementById('sort').value        = p.get('sort') ?? 'listed';
-    document.getElementById('sort_order').value  = p.get('sort_order') ?? 'desc';
-    document.getElementById('per_page').value    = p.get('per_page') ?? '50';
+    document.getElementById('username').value = p.get('user');
+    document.getElementById('status').value   = p.get('status') ?? 'For Sale';
+    document.getElementById('per_page').value = p.get('per_page') ?? '50';
     load(parseInt(p.get('page') ?? '1', 10));
     return;
   }

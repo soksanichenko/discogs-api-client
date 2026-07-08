@@ -2,7 +2,7 @@
 
 ## Overview
 
-Discogs API proxy: serves Swagger UI, forwards requests to `api.discogs.com`, handles OAuth 1.0a, and includes an inventory management UI. Deployed to `zelgray.work/discogs` via Ansible as a Docker container.
+Discogs API proxy: serves Swagger UI, forwards requests to `api.discogs.com`, handles OAuth 1.0a, and includes inventory/collection management UIs. Deployed to `zelgray.work/discogs` via Ansible as a Docker container.
 
 ## Project Structure
 
@@ -15,9 +15,14 @@ discogs-api-client/
 ├── sources/
 │   ├── proxy.py               # Starlette app — all routes and proxy logic
 │   ├── discogs-openapi.yaml   # OpenAPI 3.1.0 spec for Discogs API v2.0
+│   ├── home.html              # Landing page (/) — just the shared header, sign-in only
+│   ├── docs.html              # Swagger UI page (/docs)
+│   ├── success.html           # OAuth callback success page
 │   ├── inventory.html         # Single-page inventory management UI
 │   ├── collection.html        # Single-page collection viewer — list items for sale (single/bulk)
-│   └── requirements.txt       # App deps (httpx, starlette, uvicorn, oauthlib, PyYAML, python-dotenv)
+│   ├── theme.css              # Shared dark theme + header/nav/table/modal/form styles for all 5 pages
+│   ├── nav.js                 # Shared header: fetches OAuth status, renders sign-in button or page-switcher dropdown
+│   └── requirements.txt       # App deps (httpx, starlette, uvicorn, oauthlib, itsdangerous, redis, PyYAML, python-dotenv)
 ├── ansible/
 │   ├── ansible.cfg            # inventory = inventories/zelgray.work, roles_path = roles
 │   ├── inventories/
@@ -53,15 +58,17 @@ discogs-api-client/
 
 | Route | Handler | Description |
 |---|---|---|
-| `GET /` | `swagger_ui` | Swagger UI HTML |
-| `GET /docs` | `swagger_ui` | Alias |
+| `GET /` | `home_page` | Serves `home.html` — landing page, just the shared header |
+| `GET /docs` | `swagger_ui` | Serves `docs.html` — the actual Swagger UI |
 | `GET /openapi.json` | `openapi_spec` | Spec with server URL set to `BASE_URL` |
 | `GET /inventory` | `inventory_page` | Serves `inventory.html` |
 | `GET /collection` | `collection_page` | Serves `collection.html` |
+| `GET /theme.css` | `theme_css` | Shared dark theme stylesheet |
+| `GET /nav.js` | `nav_js` | Shared header/nav script |
 | `GET /oauth/status` | `oauth_status` | JSON: `{authorized, configured, username}` |
 | `GET /oauth/start` | `oauth_start` | Step 1: redirect to Discogs authorize page |
-| `GET /oauth/callback` | `oauth_callback` | Step 2: exchange verifier for access token |
-| `GET /oauth/revoke` | `oauth_revoke` | Clear stored token, redirect to `/` |
+| `GET /oauth/callback` | `oauth_callback` | Step 2: exchange verifier for access token, serves `success.html` |
+| `GET /oauth/revoke` | `oauth_revoke` | Clear this browser's session, redirect to `{BASE_URL}/` |
 | `ANY /{path}` | `proxy` | Transparent proxy to `api.discogs.com` |
 
 **Key globals:**
@@ -71,10 +78,14 @@ discogs-api-client/
 | `PORT` | hardcoded `8777` | uvicorn listen port |
 | `BASE_URL` | `DISCOGS_BASE_URL` env | OAuth callback URL + Swagger server URL |
 | `CONSUMER_KEY/SECRET` | `DISCOGS_CONSUMER_KEY/SECRET` env | OAuth 1.0a app credentials |
-| `TOKEN_PATH` | `DISCOGS_TOKEN_DIR` env / `__file__` parent | Persisted access token location |
-| `_oauth_access` | module-level dict | In-memory OAuth state (`token`, `secret`, `username`) |
+| `SECRET_KEY` | `DISCOGS_SECRET_KEY` env, or an ephemeral `secrets.token_hex(32)` if unset | Signs the session cookie |
+| `REDIS_URL` | `DISCOGS_REDIS_URL` env | Redis connection string; empty disables caching entirely |
+| `_redis` | `redis.asyncio.Redis \| None`, set up in the `lifespan` context manager | `None` if `REDIS_URL` is unset or the initial `PING` fails at startup |
+| `_pending_tokens` | module-level dict | Transient `oauth_token` → `oauth_token_secret` map between `/oauth/start` and `/oauth/callback` |
 
-OAuth token is persisted as JSON to `TOKEN_PATH` (loaded on startup). In Docker: `/app/data/.oauth_token.json`.
+OAuth access token/secret/username are **not** stored server-side — they live in `request.session`, backed by a signed, httpOnly cookie (`discogs_session`, via `starlette.middleware.sessions.SessionMiddleware`, 1-year `max_age`). Each browser authorizes and proxies independently; nothing survives on disk. If `DISCOGS_SECRET_KEY` isn't set, a random key is generated at process startup, so every restart invalidates all existing sessions — set it explicitly anywhere sessions need to survive a restart.
+
+**Redis caching (`_cache_get`/`_cache_set`, wired into `proxy()`):** `GET` requests matching `_CACHEABLE_GET_PATHS` (currently just `releases/{id}`) are cached under `discogs:{path}?{sorted query string}` for `CACHE_TTL` (30 days) — release metadata, especially artist/label ids, is effectively static and this is hit a lot by `inventory.html`'s on-demand artist/label link resolution (`fetchReleaseCached`). Both cache helpers swallow Redis errors and log a warning rather than failing the request — caching is strictly best-effort, on both the read and write path, and works identically whether `_redis` is `None` (unconfigured) or a live connection that happens to error out mid-session (e.g. Redis restarts). No other endpoint is cached; adding one means appending to `_CACHEABLE_GET_PATHS`.
 
 ## Ansible Role (discogs-api-client)
 
@@ -92,10 +103,12 @@ OAuth token is persisted as JSON to `TOKEN_PATH` (loaded on startup). In Docker:
 |---|---|
 | `discogs_api_client_container_name` | `discogs-api-client` |
 | `discogs_api_client_port` | `8777` |
-| `discogs_api_client_data_path` | `{{ docker_volumes_directory }}/discogs-api-client` |
+| `discogs_api_client_data_path` | `{{ docker_volumes_directory }}/discogs-api-client` (build context only — no longer used for OAuth persistence) |
+| `discogs_api_client_secret_key` | _(empty)_ — random string signing OAuth session cookies |
+| `discogs_api_client_redis_url` | `redis://{{ redis_container_name }}:6379` — shared Redis (not a dedicated container; see `infra`'s `redis` role) |
 | `discogs_api_client_nginx_location` | `/discogs` |
 | `discogs_api_client_nginx_custom_locations_path` | `{{ nginx_custom_locations_path }}` |
-| `discogs_api_client_upstream_name` | `discogs_api_client_upstream` |
+| `discogs_api_client_upstream_name` | `{{ discogs_api_client_container_name }}` |
 
 ## Secrets (Infisical)
 
@@ -105,6 +118,7 @@ Project ID: `286db07f-4dba-4ca9-a515-f017d77b8bf1`, env: `prod`, path: `/hosts/z
 |---|---|
 | `discogs-consumer-key` | `discogs_api_client_consumer_key` |
 | `discogs-consumer-secret` | `discogs_api_client_consumer_secret` |
+| `discogs-secret-key` | `discogs_api_client_secret_key` |
 
 ## Deployment
 
@@ -115,6 +129,8 @@ ansible-playbook playbooks/deploy.yml
 
 Requires env: `INFISICAL_API_URL=https://eu.infisical.com`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET`.
 
+Also requires the shared `redis` role already deployed (`infra`'s `playbooks/redis.yml`) — this role doesn't bring its own Redis container. Not a hard dependency: if Redis is down or unreachable, the app just proxies uncached and logs a warning (see Redis caching note above).
+
 Live at: `https://zelgray.work/discogs`
 
 ## Key Dependencies (sources/requirements.txt)
@@ -122,11 +138,13 @@ Live at: `https://zelgray.work/discogs`
 | Package | Version | Purpose |
 |---|---|---|
 | `starlette` | 1.3.1 | ASGI framework |
-| `uvicorn` | 0.49.0 | ASGI server |
+| `uvicorn` | 0.51.0 | ASGI server |
 | `httpx` | 0.28.1 | Async HTTP client for proxying |
+| `itsdangerous` | 2.2.0 | Signs the session cookie (required by Starlette's `SessionMiddleware`) |
 | `oauthlib` | 3.3.1 | OAuth 1.0a request signing |
 | `PyYAML` | 6.0.3 | Load OpenAPI spec |
 | `python-dotenv` | 1.2.2 | `.env` file support for local dev |
+| `redis` | 8.0.1 | Async client for the `GET /releases/{id}` cache (`redis.asyncio`) |
 
 ## Conventions
 
@@ -136,3 +154,14 @@ Live at: `https://zelgray.work/discogs`
 - `inventory.html` and `collection.html` derive their API base URL from `window.location.pathname` at runtime (subpath-aware).
 - `collection.html` lists a user's collection folders and lets the owner list items for sale (single item, or a queue that reopens the same form per selected item so each lot gets its own condition/price) via `POST /marketplace/listings`; each successfully listed item is then removed from the collection folder via `DELETE /users/{username}/collection/folders/{folder_id}/releases/{release_id}/instances/{instance_id}`. The listing form prefills price from `GET /marketplace/price_suggestions/{release_id}` (rounded up) and links to `discogs.com/sell/history/{release_id}`.
 - `collection.html` columns are sortable by clicking the header (toggles asc/desc). Artist/Title/Format/Label/Cat#/Year/Rating/Added map to the API's `sort` query param (server-side, works across the whole paginated collection); Folder/Notes have no API sort support, so those are sorted client-side and only affect the currently loaded page. There is no Low/Median/High price column — the Discogs API does not expose historical sold-price statistics anywhere.
+- `collection.html` supports multi-column sort: Shift+click a header to add it as a tie-breaker after the primary sort (badges show priority order, e.g. `Artist ▲¹ Year ▲²`). Only the primary key is requested from the API; secondary+ keys are applied client-side and only reorder the currently loaded page, since Discogs has no multi-column `sort` param. A plain click resets back to a single-column sort.
+- `inventory.html` mirrors `collection.html`'s sort system on the `/users/{username}/inventory` endpoint's own `sort` enum (`artist, item, price, catno, audio, status, location, listed`; `label` is a valid API key too but has no field to attach a column to, so it's omitted); Format/Year/Condition/Qty are client-side/page-only, same caveat as Folder/Notes on `collection.html`.
+- Both `collection.html` and `inventory.html` remember the last-used sort per browser via `localStorage` (`discogs_collection_sort` / `discogs_inventory_sort`, written in `onHeaderClick`) and restore it on load — an explicit `?sort=` in the URL still takes priority over the stored value.
+- Artist/Title/Label are clickable on both pages, but the two APIs differ: `collection.html`'s `CollectionBasicInformation` includes real `artists[].id`/`labels[].id`, so those link directly to `discogs.com/artist|label/{id}`. `inventory.html`'s `ListingReleaseRef` only has a flat `artist` name string and no label field at all — Artist/Cat# there are lazy-linked: clicking calls `GET /releases/{release_id}` (which does have full `artists[]`/`labels[]` with ids) on demand and opens the resolved page in a new tab, rather than eagerly fetching it for every row (avoids an N+1 burst on a 100-row page). Results are cached per `release_id` in an in-memory `Map` for the tab's lifetime — see `fetchReleaseCached`/`openArtistPage`/`openLabelPage`.
+- `collection.html`'s `basic_information.formats` is a real array (a release can have more than one distinct format entry, e.g. mixed bitrate files or a box set). `renderFormatCell` renders each entry as its own block: the name/qty/text stays a single header line, but that entry's own `descriptions` (e.g. `7", 45 RPM, Limited Edition, Stereo`) are each broken out into a `<li>` instead of one comma-joined run-on line — multiple format entries stack as multiple header+list blocks. `releaseFormats`/`releaseFormat` (the flat " · "-joined single-line summary, used for the sort key and the modal's release-info line) are unaffected. `inventory.html`'s `release.format` is a flat pre-joined string from Discogs with nothing to unbundle.
+- Both pages support **global filters** (Artist/Format/Label/Year/Rating on `collection.html`; Artist/Format/Condition/Location/Audio on `inventory.html`) — opt-in via an "Enable filters" button, since Discogs has no filter-by-column query param and making these global (rather than page-scoped, unlike sort) means fetching the *entire* folder/status-filtered inventory into memory first (`enableFilters()`, paginated fetch loop at `per_page=100`). Once loaded, `_allItems`/`_allListings` holds everything, filter dropdowns are populated from its actual distinct values (`buildFilterOptions`), and `renderFilteredPage(page)` client-side filters + sorts + paginates that in-memory set — `load()`/`renderFilteredPage()` share rendering via `renderTablePage()`. Changing username/folder (`collection.html`) or username/status (`inventory.html`) invalidates the loaded set (`resetFilters()`, wired through `onFolderChange`/`onStatusChange`); per-page changes just re-paginate whichever mode is active (`onControlChange` → `goToPage`). `collection.html`'s Format filter matches against every part of a format entry (name, text, and each description), not just the top-level name — so e.g. "45 RPM" or "Limited Edition" are valid filter values, not only "Vinyl"/"CD".
+- All server-side redirects (`oauth_revoke`, `oauth_start`→Discogs, the `success.html` auto-forward) build the target from `BASE_URL`, never a bare `/` — the app is mounted at `zelgray.work/discogs` behind nginx, so a bare-root redirect would escape the subpath and land on the domain root instead of the app's home page.
+- Post-login flow: `oauth_callback` renders `success.html`, which shows a "Connected as X" confirmation and then auto-forwards to `/collection` after ~1.5s via JS (`Continue →` button as the immediate-click fallback) — landing straight in Collection is the intended default after signing in. `home.html` itself never auto-redirects on its own — it's a stable hub page that, once authorized, shows the header dropdown plus the same 3 links (API/Inventory/Collection) rendered as buttons in the page body (`nav.js`'s `initDiscogsNav(headerContainerId, linksContainerId)` — the second, optional arg populates a body-level links panel, used only by `home.html`).
+- `inventory.html` mirrors `collection.html`'s column/sort system: Artist/Item/Cat#/Price/Status/Audio/Location/Listed map to the `/users/{username}/inventory` endpoint's `sort` enum (server-side); Format/Year/Condition/Qty have no API sort support and are sorted client-side, current page only. The API also has a `label` sort key, but there's no label-name field in `InventoryListingItem`/`ListingReleaseRef` to attach a column to, so it's intentionally omitted. Same Shift+click multi-column behavior as `collection.html`.
+- All 5 pages (`home.html`, `docs.html`, `success.html`, `inventory.html`, `collection.html`) are plain HTML files under `sources/`, served via `_render_static_page()` — none of proxy.py's HTML is inlined as Python f-strings anymore. They share one dark theme (`theme.css`, palette matches zelgray.work's personal-card site) and one header (`<header class="site-header">` + `<div id="site-nav">`, populated by `nav.js`'s `initDiscogsNav('site-nav')`). The header shows a "Sign in with Discogs" button when unauthorized, or the username + a page-switcher `<select>` (API/Inventory/Collection) + "Sign out" once authorized — Inventory/Collection/API are only reachable through that dropdown once signed in; `home.html` itself has no other content, everything functional lives on the other 4 pages.
+- `_render_static_page(path, **placeholders)` reads an HTML file and replaces literal `__TOKEN__` tokens: `__THEME_CSS_VERSION__`/`__NAV_JS_VERSION__` always (an 8-char content hash, recomputed fresh on every request — cache-busting without a build step or server restart), plus any extra tokens the caller passes as kwargs (e.g. `success.html` also takes `__BASE_URL__`/`__USERNAME__`, since `oauth_callback` needs to fill in the signed-in username and — being nested two segments deep at `/oauth/callback` — can't use `theme.css`'s plain relative-path trick the other pages use). `home.html`/`docs.html`/`inventory.html`/`collection.html` all link `theme.css`/`nav.js` with plain relative hrefs (`href="theme.css?v=__THEME_CSS_VERSION__"`), which resolve correctly because every one of those routes is exactly one path segment deep under whatever prefix nginx mounts the app at.

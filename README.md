@@ -1,6 +1,6 @@
 # discogs-api-client
 
-Unofficial OpenAPI 3.1.0 spec for the Discogs API v2.0, with a local Swagger UI proxy for interactive testing and an inventory management UI.
+Unofficial OpenAPI 3.1.0 spec for the Discogs API v2.0, with a local Swagger UI proxy for interactive testing, an inventory management UI, and a collection viewer for listing items for sale.
 
 ## Project structure
 
@@ -10,9 +10,15 @@ discogs-api-client/
 │   ├── dependabot.yml          # Weekly dependency update PRs
 │   └── workflows/lint.yml      # ruff check + format on push/PR
 ├── sources/
-│   ├── proxy.py               # Starlette proxy: Swagger UI + OAuth 1.0a + API forwarding
+│   ├── proxy.py               # Starlette proxy: OAuth 1.0a + API forwarding + serves the pages below
 │   ├── discogs-openapi.yaml   # Full Discogs API OpenAPI spec
+│   ├── home.html              # Landing page (/) — just the shared header, sign-in only
+│   ├── docs.html              # Swagger UI page (/docs)
+│   ├── success.html           # OAuth callback success page
 │   ├── inventory.html         # Inventory management UI
+│   ├── collection.html        # Collection viewer — list items for sale, single or bulk
+│   ├── theme.css              # Shared dark theme for all 5 pages
+│   ├── nav.js                 # Shared header: sign-in button / page-switcher dropdown
 │   └── requirements.txt       # App Python dependencies
 ├── ansible/
 │   ├── ansible.cfg
@@ -32,8 +38,12 @@ pip install -r sources/requirements.txt
 python sources/proxy.py
 ```
 
-Opens at: `http://localhost:8777/`  
-Inventory UI: `http://localhost:8777/inventory`
+Home (sign-in landing page): `http://localhost:8777/`  
+Swagger UI: `http://localhost:8777/docs`  
+Inventory UI: `http://localhost:8777/inventory`  
+Collection UI: `http://localhost:8777/collection`
+
+The home page is intentionally minimal — just a sign-in button, or (once signed in) a dropdown to the other three pages. Everything else lives on its own page.
 
 ## Authentication
 
@@ -48,7 +58,7 @@ python sources/proxy.py
 # then open http://localhost:8777/oauth/start
 ```
 
-Once authorized, all proxied requests are signed automatically. The access token is persisted to `.oauth_token.json` (or `$DISCOGS_TOKEN_DIR/.oauth_token.json`).
+Once authorized, all proxied requests are signed automatically. The access token is kept in a signed, httpOnly session cookie in your browser (not on the server) — each browser/user authorizes independently. Set `DISCOGS_SECRET_KEY` to a stable random value so sessions survive a server restart; otherwise an ephemeral key is generated at startup and everyone is logged out on restart.
 
 ### Manual auth via Swagger UI
 
@@ -63,8 +73,20 @@ Click **Authorize** and fill in one of:
 |---|---|---|
 | `DISCOGS_CONSUMER_KEY` | OAuth app consumer key | _(empty)_ |
 | `DISCOGS_CONSUMER_SECRET` | OAuth app consumer secret | _(empty)_ |
+| `DISCOGS_SECRET_KEY` | Key used to sign OAuth session cookies | ephemeral (regenerated on each restart) |
 | `DISCOGS_BASE_URL` | Public base URL of the proxy (used for OAuth callback and Swagger server URL) | `http://localhost:8777` |
-| `DISCOGS_TOKEN_DIR` | Directory where `.oauth_token.json` is stored | same dir as `proxy.py` |
+| `DISCOGS_REDIS_URL` | Redis URL for caching `GET /releases/{id}` lookups (e.g. `redis://localhost:6379`) | _(empty — caching disabled)_ |
+
+## Caching
+
+`GET /releases/{id}` responses are cached in Redis for 30 days when `DISCOGS_REDIS_URL` is set — release metadata (especially artist/label ids, used for the Inventory page's on-demand artist/label links) rarely changes and this endpoint gets hit a lot. Caching is entirely optional and best-effort: without the env var, or if Redis is unreachable, the app just proxies every request straight through and logs a warning.
+
+```bash
+# Local Redis for testing
+docker run -d --name redis -p 6379:6379 redis:7-alpine
+export DISCOGS_REDIS_URL=redis://localhost:6379
+python sources/proxy.py
+```
 
 ## Spec coverage
 
@@ -87,7 +109,7 @@ ansible-playbook playbooks/deploy.yml
 ```
 
 Requires `INFISICAL_API_URL`, `INFISICAL_CLIENT_ID`, `INFISICAL_CLIENT_SECRET` in the environment.  
-Secrets `discogs-consumer-key` and `discogs-consumer-secret` must exist in Infisical under `/hosts/zelgray-work`.
+Secrets `discogs-consumer-key`, `discogs-consumer-secret`, and `discogs-secret-key` must exist in Infisical under `/hosts/zelgray-work`.
 
 See [`ansible/roles/discogs-api-client/README.md`](ansible/roles/discogs-api-client/README.md).
 

@@ -35,14 +35,6 @@
   become: yes
   tags: discogs-api-client
 
-- name: Create discogs-api-client data directory
-  ansible.builtin.file:
-    path: "{{ discogs_api_client_data_path }}/data"
-    state: directory
-    mode: '0700'
-  become: yes
-  tags: discogs-api-client
-
 - name: Run discogs-api-client container
   community.docker.docker_container:
     name: "{{ discogs_api_client_container_name }}"
@@ -52,15 +44,12 @@
     state: started
     networks:
       - name: "{{ docker_network }}"
-    mounts:
-      - source: "{{ discogs_api_client_data_path }}/data"
-        target: /app/data
-        type: bind
     env:
       DISCOGS_CONSUMER_KEY: "{{ discogs_api_client_consumer_key }}"
       DISCOGS_CONSUMER_SECRET: "{{ discogs_api_client_consumer_secret }}"
       DISCOGS_BASE_URL: "{{ discogs_api_client_base_url }}"
-      DISCOGS_TOKEN_DIR: /app/data
+      DISCOGS_SECRET_KEY: "{{ discogs_api_client_secret_key }}"
+      DISCOGS_REDIS_URL: "{{ discogs_api_client_redis_url }}"
     log_driver: journald
   become: yes
   no_log: true
