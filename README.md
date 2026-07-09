@@ -19,6 +19,7 @@ discogs-api-client/
 │   ├── collection.html        # Collection viewer — list items for sale, single or bulk
 │   ├── theme.css              # Shared dark theme for all 5 pages
 │   ├── nav.js                 # Shared header: sign-in button / page-switcher dropdown
+│   ├── combo.js               # Shared searchable dropdown widget for inventory/collection filter bars
 │   └── requirements.txt       # App Python dependencies
 ├── ansible/
 │   ├── ansible.cfg

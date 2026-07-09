@@ -22,7 +22,7 @@ discogs-api-client/
 │   ├── collection.html        # Single-page collection viewer — list items for sale (single/bulk)
 │   ├── theme.css              # Shared dark theme + header/nav/table/modal/form/combo styles for all 5 pages
 │   ├── nav.js                 # Shared header: fetches OAuth status, renders sign-in button or page-switcher dropdown
-│   ├── combo.js                # Shared searchable dropdown widget, used by inventory.html/collection.html's filter bars
+│   ├── combo.js               # Shared searchable dropdown widget, used by inventory.html/collection.html's filter bars
 │   └── requirements.txt       # App deps (httpx, starlette, uvicorn, oauthlib, itsdangerous, redis, PyYAML, python-dotenv)
 ├── ansible/
 │   ├── ansible.cfg            # inventory = inventories/zelgray.work, roles_path = roles
