@@ -63,16 +63,6 @@
 </div>
 
 <div class="filters-bar" id="filters-row">
-  <label>Artist</label>
-  <select id="filter-artist" onchange="onFilterChange('artist', this.value)"><option value="">All Artist</option></select>
-  <label>Format</label>
-  <select id="filter-format" onchange="onFilterChange('format', this.value)"><option value="">All Format</option></select>
-  <label>Condition</label>
-  <select id="filter-condition" onchange="onFilterChange('condition', this.value)"><option value="">All Condition</option></select>
-  <label>Location</label>
-  <select id="filter-location" onchange="onFilterChange('location', this.value)"><option value="">All Location</option></select>
-  <label>Audio</label>
-  <select id="filter-audio" onchange="onFilterChange('audio', this.value)"><option value="">All Audio</option></select>
   <button class="btn btn-sm" style="margin-left:auto" onclick="clearFilters()">✕ Clear filters</button>
 </div>
 
@@ -203,6 +193,7 @@
 <div id="toasts"></div>
 
 <script src="nav.js?v=__NAV_JS_VERSION__"></script>
+<script src="combo.js?v=__COMBO_JS_VERSION__"></script>
 <script>
 // ── Base URL (works on any subpath) ─────────────────────────────────────────
 const BASE = window.location.pathname.replace(/\/inventory\/?$/, '');
@@ -341,10 +332,29 @@ const FILTER_COLUMNS = [
   { key: 'audio', label: 'Audio' },
 ];
 
+// Renders each filter's <label> + combo widget (combo.js) from FILTER_COLUMNS
+// and wires it up — replaces what used to be static <select> markup, since
+// native <select> popups can't be resized/scrolled reliably for filters with
+// hundreds of values (e.g. Artist on a large inventory).
+const _filterCombos = {};
+(function initFilterCombos() {
+  const html = FILTER_COLUMNS.map(c => `
+    <label>${esc(c.label)}</label>
+    <div class="combo" id="filter-${c.key}"><button type="button" class="combo-toggle"></button><div class="combo-menu"><input type="text" class="combo-search" placeholder="Filter…"><div class="combo-list"></div></div></div>
+  `).join('');
+  document.getElementById('filters-row').insertAdjacentHTML('afterbegin', html);
+  for (const c of FILTER_COLUMNS) {
+    _filterCombos[c.key] = initCombo(document.getElementById(`filter-${c.key}`), {
+      allLabel: `All ${c.label}`,
+      onChange: v => onFilterChange(c.key, v),
+    });
+  }
+})();
+
 function filterValueOf(item, key) {
   switch (key) {
     case 'artist': return item.release?.artist ? [item.release.artist] : [];
-    case 'format': return item.release?.format ? [item.release.format] : [];
+    case 'format': return formatParts(item.release);
     case 'condition': return item.condition ? [item.condition] : [];
     case 'location': return item.location ? [item.location] : [];
     case 'audio': return [item.audio ? 'Yes' : 'No'];
@@ -364,8 +374,7 @@ function buildFilterOptions() {
     const values = new Set();
     for (const item of _allListings) filterValueOf(item, c.key).forEach(v => values.add(v));
     const sorted = [...values].sort((a, b) => a.localeCompare(b));
-    const sel = document.getElementById(`filter-${c.key}`);
-    if (sel) sel.innerHTML = `<option value="">All ${esc(c.label)}</option>` + sorted.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    _filterCombos[c.key]?.setOptions(sorted);
   }
 }
 
@@ -420,7 +429,7 @@ function onFilterChange(key, value) {
 
 function clearFilters() {
   _activeFilters = {};
-  FILTER_COLUMNS.forEach(c => { const el = document.getElementById(`filter-${c.key}`); if (el) el.value = ''; });
+  FILTER_COLUMNS.forEach(c => _filterCombos[c.key]?.setValue(''));
   renderFilteredPage(1);
 }
 
@@ -604,6 +613,30 @@ function lazyLinkOrText(releaseId, text, handler, cls, extraAttr = '') {
   return `<a class="${cls}" href="#" data-release-id="${releaseId}" ${extraAttr} onclick="${handler}(event, this)">${t}</a>`;
 }
 
+// ListingReleaseRef.format is a single, already-flattened string from Discogs
+// (e.g. "Vinyl, LP, Album, Limited Edition, Stereo") — unlike collection.html's
+// basic_information.formats, there's no structured array underneath. Splitting
+// on comma is the best available way to recover individual tokens, both for
+// display (renderFormatCell, below) and for filtering (filterValueOf's
+// 'format' case) so e.g. "Limited Edition" is its own selectable value
+// instead of being stuck inside one run-on string.
+function formatParts(rel) {
+  return (rel?.format ?? '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+// Table cell: first token stays a plain header line, the rest become one
+// bullet each instead of a single comma-joined run-on line — mirrors
+// collection.html's renderFormatCell, adapted for a flat string instead of a
+// real formats[] array.
+function renderFormatCell(rel) {
+  const [head, ...rest] = formatParts(rel);
+  if (!head) return '';
+  const list = rest.length
+    ? `<ul style="margin:2px 0 0;padding-left:1.1em">${rest.map(d => `<li>${esc(d)}</li>`).join('')}</ul>`
+    : '';
+  return `<div>${esc(head)}${list}</div>`;
+}
+
 function renderRow(item) {
   const rel = item.release ?? {};
   const artist = rel.artist ?? '';
@@ -623,7 +656,7 @@ function renderRow(item) {
       <div style="margin-top:3px">
         <a class="r-link" href="${listingUrl}" target="_blank">#${item.id}</a>
       </div>`,
-    format: esc(rel.format ?? ''),
+    format: renderFormatCell(rel),
     catno: lazyLinkOrText(rel.id, rel.catalog_number, 'openLabelPage', 'cell-link'),
     year: esc(rel.year ?? ''),
     condition: condBlock,

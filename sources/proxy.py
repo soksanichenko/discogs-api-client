@@ -63,6 +63,7 @@ INVENTORY_PATH = Path(__file__).parent / 'inventory.html'
 COLLECTION_PATH = Path(__file__).parent / 'collection.html'
 THEME_CSS_PATH = Path(__file__).parent / 'theme.css'
 NAV_JS_PATH = Path(__file__).parent / 'nav.js'
+COMBO_JS_PATH = Path(__file__).parent / 'combo.js'
 
 CONSUMER_KEY = os.environ.get('DISCOGS_CONSUMER_KEY', '')
 CONSUMER_SECRET = os.environ.get('DISCOGS_CONSUMER_SECRET', '')
@@ -180,6 +181,7 @@ def _render_static_page(path: Path, **placeholders: str) -> str:
     content = path.read_text(encoding='utf-8')
     content = content.replace('__THEME_CSS_VERSION__', _asset_version(THEME_CSS_PATH))
     content = content.replace('__NAV_JS_VERSION__', _asset_version(NAV_JS_PATH))
+    content = content.replace('__COMBO_JS_VERSION__', _asset_version(COMBO_JS_PATH))
     for name, value in placeholders.items():
         content = content.replace(f'__{name}__', value)
     return content
@@ -208,6 +210,12 @@ async def theme_css(request: Request) -> Response:
 async def nav_js(request: Request) -> Response:
     return Response(
         NAV_JS_PATH.read_text(encoding='utf-8'), media_type='application/javascript'
+    )
+
+
+async def combo_js(request: Request) -> Response:
+    return Response(
+        COMBO_JS_PATH.read_text(encoding='utf-8'), media_type='application/javascript'
     )
 
 
@@ -425,6 +433,7 @@ app = Starlette(
         Route('/collection', collection_page),
         Route('/theme.css', theme_css),
         Route('/nav.js', nav_js),
+        Route('/combo.js', combo_js),
         Route('/oauth/status', oauth_status),
         Route('/oauth/start', oauth_start),
         Route('/oauth/callback', oauth_callback),

@@ -43,22 +43,14 @@
 </div>
 
 <div class="filters-bar" id="filters-row">
-  <label>Artist</label>
-  <select id="filter-artist" onchange="onFilterChange('artist', this.value)"><option value="">All Artist</option></select>
-  <label>Format</label>
-  <select id="filter-format" onchange="onFilterChange('format', this.value)"><option value="">All Format</option></select>
-  <label>Label</label>
-  <select id="filter-label" onchange="onFilterChange('label', this.value)"><option value="">All Label</option></select>
-  <label>Year</label>
-  <select id="filter-year" onchange="onFilterChange('year', this.value)"><option value="">All Year</option></select>
-  <label>Rating</label>
-  <select id="filter-rating" onchange="onFilterChange('rating', this.value)"><option value="">All Rating</option></select>
-  <button class="btn btn-sm" style="margin-left:auto" onclick="clearFilters()">✕ Clear filters</button>
+  <button class="btn btn-sm" style="margin-left:auto" onclick="refreshFilterData()" title="Cached collection snapshot may be up to 1 hour old — click to refetch from Discogs">↻ Refresh</button>
+  <button class="btn btn-sm" onclick="clearFilters()">✕ Clear filters</button>
 </div>
 
 <div id="bulk-bar">
   <span id="bulk-count"></span>
   <button class="btn btn-success btn-sm" onclick="startQueue()">List selected for sale…</button>
+  <button class="btn btn-danger btn-sm" onclick="removeSelected()">Remove from collection</button>
   <button class="btn btn-sm" style="margin-left:auto" onclick="clearSelection()">✕ Clear</button>
 </div>
 
@@ -172,6 +164,7 @@
 <div id="toasts"></div>
 
 <script src="nav.js?v=__NAV_JS_VERSION__"></script>
+<script src="combo.js?v=__COMBO_JS_VERSION__"></script>
 <script>
 // ── Base URL (works on any subpath) ─────────────────────────────────────────
 const BASE = window.location.pathname.replace(/\/collection\/?$/, '');
@@ -278,6 +271,26 @@ const FILTER_COLUMNS = [
   { key: 'year', label: 'Year' },
   { key: 'rating', label: 'Rating' },
 ];
+
+// Renders each filter's <label> + combo widget (combo.js) from FILTER_COLUMNS
+// and wires it up — replaces what used to be static <select> markup, since
+// native <select> popups can't be resized/scrolled reliably for filters with
+// hundreds of values (e.g. Artist/Label on a large collection).
+const _filterCombos = {};
+(function initFilterCombos() {
+  const html = FILTER_COLUMNS.map(c => `
+    <label>${esc(c.label)}</label>
+    <div class="combo" id="filter-${c.key}"><button type="button" class="combo-toggle"></button><div class="combo-menu"><input type="text" class="combo-search" placeholder="Filter…"><div class="combo-list"></div></div></div>
+  `).join('');
+  document.getElementById('filters-row').insertAdjacentHTML('afterbegin', html);
+  for (const c of FILTER_COLUMNS) {
+    _filterCombos[c.key] = initCombo(document.getElementById(`filter-${c.key}`), {
+      allLabel: `All ${c.label}`,
+      onChange: v => onFilterChange(c.key, v),
+    });
+  }
+})();
+
 let _sort = 'added';
 let _sortOrder = 'desc';
 
@@ -431,6 +444,65 @@ function updateBulkBar() {
   document.getElementById('bulk-count').textContent = `${n} item${n !== 1 ? 's' : ''} selected`;
 }
 
+// ── Remove from collection ──────────────────────────────────────────────────
+// Page changes always clearSelection() (see load()/renderFilteredPage()), so
+// _selected can only ever hold instance_ids from the currently rendered _items.
+function removeItemFromState(instanceId) {
+  _items = _items.filter(it => it.instance_id !== instanceId);
+  if (_allItems) _allItems = _allItems.filter(it => it.instance_id !== instanceId);
+  _selected.delete(instanceId);
+}
+
+function afterRemoval() {
+  updateBulkBar();
+  if (_allItems) {
+    syncFilterCacheAfterMutation();
+    renderFilteredPage(_currentPage);
+    return;
+  }
+  rerenderTbody();
+  if (_items.length === 0) load(Math.max(1, _currentPage - 1));
+}
+
+async function removeSingleItem(instanceId) {
+  const username = document.getElementById('username').value.trim();
+  const item = _items.find(it => it.instance_id === instanceId);
+  if (!item) return;
+  if (!confirm(`Remove "${releaseLabel(item)}" from your collection?`)) return;
+
+  try {
+    await apiRemoveFromCollection(username, item);
+    removeItemFromState(instanceId);
+    afterRemoval();
+    toast(`Removed "${releaseLabel(item)}" from your collection`, 'success');
+  } catch (e) {
+    toast(`Failed to remove "${releaseLabel(item)}": ${e.message}`, 'error');
+  }
+}
+
+async function removeSelected() {
+  const ids = [..._selected];
+  if (!ids.length) return;
+  if (!confirm(`Remove ${ids.length} item${ids.length > 1 ? 's' : ''} from your collection?`)) return;
+  const username = document.getElementById('username').value.trim();
+
+  let done = 0, failed = 0;
+  for (const id of ids) {
+    const item = _items.find(it => it.instance_id === id);
+    if (!item) continue;
+    try {
+      await apiRemoveFromCollection(username, item);
+      removeItemFromState(id);
+      done++;
+    } catch {
+      failed++;
+    }
+  }
+  afterRemoval();
+  if (done) toast(`Removed ${done} item${done > 1 ? 's' : ''} from your collection`, 'success');
+  if (failed) toast(`Failed to remove ${failed} item${failed > 1 ? 's' : ''}`, 'error');
+}
+
 // ── Render ───────────────────────────────────────────────────────────────────
 function renderThumb(url, title) {
   if (url) return `<img class="thumb" src="${esc(url)}" alt="${esc(title)}" loading="lazy"
@@ -473,6 +545,7 @@ function renderRow(item) {
     ${cells}
     <td class="col-actions">
       <button class="btn btn-success btn-sm" onclick="openModal('single', ${item.instance_id})">List for sale</button>
+      <button class="btn btn-danger btn-sm" onclick="removeSingleItem(${item.instance_id})">Remove</button>
     </td>
   </tr>`;
 }
@@ -622,26 +695,78 @@ function buildFilterOptions() {
     for (const item of _allItems) filterValueOf(item, c.key).forEach(v => values.add(v));
     const numeric = c.key === 'year' || c.key === 'rating';
     const sorted = [...values].sort(numeric ? (a, b) => Number(b) - Number(a) : (a, b) => a.localeCompare(b));
-    const sel = document.getElementById(`filter-${c.key}`);
-    if (sel) sel.innerHTML = `<option value="">All ${esc(c.label)}</option>` + sorted.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+    _filterCombos[c.key]?.setOptions(sorted);
   }
 }
 
 function resetFilters() {
   _allItems = null;
   _activeFilters = {};
+  _filterCacheContext = null;
   const row = document.getElementById('filters-row');
   if (row) row.classList.remove('visible');
   const btn = document.getElementById('filters-toggle-btn');
   if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = '🔍 Enable filters'; }
 }
 
-async function enableFilters() {
+// Full-collection filter cache: fetching every page of a folder's releases
+// (enableFilters' loop below) can take a while for large collections, so the
+// result is persisted per (username, folder) in localStorage and reused on
+// the next "Enable filters" instead of refetching. Discogs data can still
+// change outside this UI, so entries expire after FILTER_CACHE_TTL_MS, and
+// there's a manual "↻ Refresh" button (refreshFilterData) to bypass the
+// cache on demand.
+const FILTER_CACHE_PREFIX = 'discogs_collection_filter_cache:';
+const FILTER_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+let _filterCacheContext = null; // { username, folderId } that _allItems currently reflects
+
+function filterCacheKey(username, folderId) {
+  return `${FILTER_CACHE_PREFIX}${username}::${folderId}`;
+}
+
+function readFilterCache(username, folderId) {
+  try {
+    const raw = localStorage.getItem(filterCacheKey(username, folderId));
+    if (!raw) return null;
+    const { items, fetchedAt } = JSON.parse(raw);
+    if (!Array.isArray(items) || Date.now() - fetchedAt > FILTER_CACHE_TTL_MS) return null;
+    return items;
+  } catch { return null; }
+}
+
+function writeFilterCache(username, folderId, items) {
+  try {
+    localStorage.setItem(filterCacheKey(username, folderId), JSON.stringify({ items, fetchedAt: Date.now() }));
+  } catch { /* storage unavailable or quota exceeded — caching is best-effort */ }
+}
+
+// Keeps the persisted cache in sync after items are removed mid-session
+// (see afterRemoval), so it doesn't go stale before FILTER_CACHE_TTL_MS even
+// without a manual refresh.
+function syncFilterCacheAfterMutation() {
+  if (_allItems && _filterCacheContext) writeFilterCache(_filterCacheContext.username, _filterCacheContext.folderId, _allItems);
+}
+
+// forceRefresh bypasses any cached snapshot and refetches from Discogs.
+async function enableFilters(forceRefresh = false) {
   const username = document.getElementById('username').value.trim();
   if (!username) { alert('Enter a username.'); return; }
   const folderId = document.getElementById('folder').value || '0';
   const btn = document.getElementById('filters-toggle-btn');
   btn.disabled = true;
+
+  if (!forceRefresh) {
+    const cached = readFilterCache(username, folderId);
+    if (cached) {
+      _allItems = cached;
+      _filterCacheContext = { username, folderId };
+      buildFilterOptions();
+      document.getElementById('filters-row').classList.add('visible');
+      btn.style.display = 'none';
+      renderFilteredPage(1);
+      return;
+    }
+  }
 
   const items = [];
   try {
@@ -664,10 +789,16 @@ async function enableFilters() {
   }
 
   _allItems = items;
+  _filterCacheContext = { username, folderId };
+  writeFilterCache(username, folderId, items);
   buildFilterOptions();
   document.getElementById('filters-row').classList.add('visible');
   btn.style.display = 'none';
   renderFilteredPage(1);
+}
+
+function refreshFilterData() {
+  enableFilters(true);
 }
 
 function onFilterChange(key, value) {
@@ -677,7 +808,7 @@ function onFilterChange(key, value) {
 
 function clearFilters() {
   _activeFilters = {};
-  FILTER_COLUMNS.forEach(c => { const el = document.getElementById(`filter-${c.key}`); if (el) el.value = ''; });
+  FILTER_COLUMNS.forEach(c => _filterCombos[c.key]?.setValue(''));
   renderFilteredPage(1);
 }
 
@@ -906,13 +1037,10 @@ async function submitModal() {
     } catch (e) {
       toast(`Listed #${res.listing_id} but couldn't remove it from your collection: ${e.message}`, 'error');
     }
-    _items = _items.filter(it => it.instance_id !== item.instance_id);
-    _selected.delete(item.instance_id);
+    removeItemFromState(item.instance_id);
     if (_modalMode === 'queue') { _queue.shift(); _queueDone++; }
     else toast(`Listed #${res.listing_id} for sale`, 'success');
-    updateBulkBar();
-    rerenderTbody();
-    if (_items.length === 0) load(Math.max(1, _currentPage - 1));
+    afterRemoval();
     closeModal();
     if (_modalMode === 'queue') advanceQueue();
   } catch (e) {

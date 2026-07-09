@@ -139,7 +139,29 @@ header.site-header {
                display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
 .filters-bar.visible { display: flex; }
 .filters-bar label { font-size: 12px; color: var(--text-muted); font-weight: 500; }
-.filters-bar select { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; font-size: 13px; background: var(--bg); color: var(--text); outline: none; }
+
+/* ── Combo dropdown (searchable; used by the filters bar in place of a native
+   <select> — native select popups cap their own popup height at a fixed
+   browser constant regardless of available screen space, so long option
+   lists like Artist/Label get stuck showing only a handful of rows) ── */
+.combo { position: relative; }
+.combo-toggle {
+  display: block; max-width: 200px; text-align: left;
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px 26px 6px 8px; font-size: 13px;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238891a8' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 8px center;
+  color: var(--text); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.combo-toggle:hover, .combo-toggle:focus { border-color: var(--accent); outline: none; }
+.combo-menu { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 50; min-width: 200px;
+              background: var(--surface); border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.combo-menu.open { display: block; }
+.combo-search { width: 100%; border: none; border-bottom: 1px solid var(--border); border-radius: 4px 4px 0 0; padding: 7px 10px;
+                font-size: 13px; background: var(--bg); color: var(--text); outline: none; }
+.combo-list { max-height: 260px; overflow-y: auto; }
+.combo-option { padding: 6px 10px; font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap; }
+.combo-option:hover { background: var(--tag-bg); }
+.combo-option.active { background: rgba(79,142,247,0.15); color: var(--accent); font-weight: 600; }
+.combo-empty { padding: 8px 10px; font-size: 12px; color: var(--text-muted); }
 
 /* ── Info bar ── */
 .infobar { padding: 7px 20px; font-size: 13px; color: var(--text-muted); background: var(--surface); border-bottom: 1px solid var(--border); }
