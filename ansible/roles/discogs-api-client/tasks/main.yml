@@ -50,6 +50,8 @@
       DISCOGS_BASE_URL: "{{ discogs_api_client_base_url }}"
       DISCOGS_SECRET_KEY: "{{ discogs_api_client_secret_key }}"
       DISCOGS_REDIS_URL: "{{ discogs_api_client_redis_url }}"
+    labels:
+      monitoring.critical: "true"
     log_driver: journald
   become: yes
   no_log: true
