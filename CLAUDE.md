@@ -9,9 +9,9 @@ Discogs API proxy: serves Swagger UI, forwards requests to `api.discogs.com`, ha
 ```
 discogs-api-client/
 ├── .github/
-│   ├── dependabot.yml          # Weekly pip + github-actions updates, target-branch master
+│   ├── dependabot.yml          # Weekly pip + github-actions updates, grouped by major/minor/patch, target-branch main
 │   └── workflows/
-│       └── lint.yml            # ruff check + ruff format --check on sources/ (push, PR to master)
+│       └── lint.yml            # ruff check + ruff format --check on sources/ (push, PR to main)
 ├── sources/
 │   ├── proxy.py               # Starlette app — all routes and proxy logic
 │   ├── discogs-openapi.yaml   # OpenAPI 3.1.0 spec for Discogs API v2.0
