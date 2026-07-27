@@ -20,9 +20,11 @@ jobs:
         uses: astral-sh/ruff-action@v3
         with:
           args: "check sources/"
+          version: "0.15.22"
 
       - name: Run ruff format check
         uses: astral-sh/ruff-action@v3
         with:
           args: "format --check sources/"
+          version: "0.15.22"
 ...
