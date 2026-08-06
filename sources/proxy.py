@@ -299,7 +299,7 @@ async def oauth_start(request: Request) -> Response:
         )
 
     _pending_tokens[oauth_token] = oauth_token_secret
-    logger.info('OAuth: redirecting to Discogs authorize (token=%s…)', oauth_token[:8])
+    logger.info('OAuth: redirecting to Discogs authorize')
 
     return RedirectResponse(
         f'https://www.discogs.com/oauth/authorize?oauth_token={oauth_token}'
