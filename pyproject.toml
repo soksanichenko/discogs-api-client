@@ -7,7 +7,7 @@ dependencies = [
     "oauthlib==3.3.1",
     "python-dotenv==1.2.3",
     "starlette==1.6.0",
-    "uvicorn==0.52.4",
+    "uvicorn==0.53.0",
     "PyYAML==6.0.3",
 ]
 
