@@ -5,6 +5,10 @@ infisical_path: "/hosts/zelgray-work"
 docker_network: "active"
 docker_volumes_directory: "/opt/docker"
 redis_container_name: "redis"
+# The shared Redis (infra's redis role) requires a password; urlencode it
+# (and '/', which urlencode keeps) so any character is safe in the URL.
+discogs_api_client_redis_url: >-
+  redis://:{{ infisical_secrets.secrets['redis-password'] | urlencode | replace('/', '%2F') }}@{{ redis_container_name }}:6379
 nginx_docker_container_name: "nginx-server"
 nginx_confd_path: "{{ docker_volumes_directory }}/nginx/conf.d"
 nginx_custom_upstream_path: "{{ nginx_confd_path }}/custom-upstream"
