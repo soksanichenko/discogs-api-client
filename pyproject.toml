@@ -4,10 +4,10 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "httpx==0.28.1",
-    "oauthlib==3.3.1",
-    "python-dotenv==1.2.3",
+    "oauthlib==4.0.0",
+    "python-dotenv==1.2.4",
     "starlette==1.7.0",
-    "uvicorn==0.53.0",
+    "uvicorn==0.54.0",
     "PyYAML==6.0.3",
 ]
 
