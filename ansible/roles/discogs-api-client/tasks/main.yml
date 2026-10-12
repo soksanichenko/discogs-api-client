@@ -57,11 +57,12 @@
   no_log: true
   tags: discogs-api-client
 
-- name: Deploy nginx upstream config
-  ansible.builtin.template:
-    src: nginx-upstream.conf.j2
-    dest: "{{ nginx_custom_upstream_path }}/discogs-api-client.conf"
-    mode: '0644'
+# Superseded by the resolver + variable in the location: a static upstream is
+# resolved once at nginx start and breaks it while the container is down.
+- name: Remove the old nginx upstream config
+  ansible.builtin.file:
+    path: "{{ nginx_custom_upstream_path }}/discogs-api-client.conf"
+    state: absent
   become: yes
   notify: Reload nginx
   tags: discogs-api-client

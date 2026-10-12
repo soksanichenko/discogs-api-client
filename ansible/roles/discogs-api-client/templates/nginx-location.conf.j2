@@ -1,5 +1,11 @@
 location {{ discogs_api_client_nginx_location }}/ {
-    proxy_pass http://{{ discogs_api_client_upstream_name }}/;
+    # Resolved through Docker's DNS per request, so a stopped/recreated
+    # container can't stop nginx itself from starting. A variable proxy_pass
+    # can't strip the location prefix, hence the rewrite.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $discogs_api_client_host "{{ discogs_api_client_container_name }}";
+    rewrite ^{{ discogs_api_client_nginx_location }}/(.*)$ /$1 break;
+    proxy_pass http://$discogs_api_client_host:{{ discogs_api_client_port }};
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $client_real_ip;
