@@ -42,8 +42,7 @@ discogs-api-client/
 │           ├── handlers/main.yml
 │           ├── files/Dockerfile     # Python 3.12-slim image
 │           └── templates/
-│               ├── nginx-location.conf.j2
-│               └── nginx-upstream.conf.j2
+│               └── nginx-location.conf.j2
 ├── requirements.txt           # Ansible/tooling: infisicalsdk, ansible-lint, yamllint, pre-commit
 ├── requirements.yml           # Ansible collections: infisical.vault, community.docker
 ├── pyproject.toml             # Package metadata + deps; ruff format quote-style = single
@@ -91,11 +90,11 @@ OAuth access token/secret/username are **not** stored server-side — they live 
 
 ## Ansible Role (discogs-api-client)
 
-**Deploy flow:** copy `sources/` from control machine → copy `Dockerfile` from role `files/` → `docker_image` build → `docker_container` run → nginx upstream + location configs.
+**Deploy flow:** copy `sources/` from control machine → copy `Dockerfile` from role `files/` → `docker_image` build → `docker_container` run → nginx location config.
 
 **No git clone** — always deploys from local working copy.
 
-**nginx config placement:** location block goes to `discogs_api_client_nginx_custom_locations_path` (default: `nginx_custom_locations_path`). For `zelgray.work` this is overridden to `zelgray.work-custom-locations/` so the location is included only in that server block. The upstream goes to `nginx_custom_upstream_path`.
+**nginx config placement:** location block goes to `discogs_api_client_nginx_custom_locations_path` (default: `nginx_custom_locations_path`). For `zelgray.work` this is overridden to `zelgray.work-custom-locations/` so the location is included only in that server block. The location proxies to the container by name through `resolver 127.0.0.11` + a variable (with a `rewrite` to strip the prefix), not a static `upstream{}`: a static upstream is resolved once at nginx start and fails the whole nginx while the container is down; the role removes the old `custom-upstream/discogs-api-client.conf`.
 
 **Redirect fix:** `location = /discogs` uses `absolute_redirect off` to avoid nginx constructing redirects with its internal port `8443`.
 
@@ -110,7 +109,6 @@ OAuth access token/secret/username are **not** stored server-side — they live 
 | `discogs_api_client_redis_url` | `redis://{{ redis_container_name }}:6379` — shared Redis (not a dedicated container; see `infra`'s `redis` role) |
 | `discogs_api_client_nginx_location` | `/discogs` |
 | `discogs_api_client_nginx_custom_locations_path` | `{{ nginx_custom_locations_path }}` |
-| `discogs_api_client_upstream_name` | `{{ discogs_api_client_container_name }}` |
 
 ## Secrets (Infisical)
 

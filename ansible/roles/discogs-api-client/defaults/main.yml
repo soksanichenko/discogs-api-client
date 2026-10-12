@@ -9,5 +9,4 @@ discogs_api_client_redis_url: "redis://{{ redis_container_name }}:6379"
 discogs_api_client_base_url: ''
 discogs_api_client_nginx_location: '/discogs'
 discogs_api_client_nginx_custom_locations_path: "{{ nginx_custom_locations_path }}"
-discogs_api_client_upstream_name: "{{ discogs_api_client_container_name }}"
 ...

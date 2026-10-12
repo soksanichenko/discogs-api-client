@@ -8,7 +8,7 @@ Deploys the discogs-api-client proxy as a Docker container on `zelgray.work`, se
 - Copies `Dockerfile` from role `files/` into the build context
 - Builds the Docker image locally on the target host
 - Runs the container on the `active` Docker network with secrets injected as env vars
-- Deploys nginx upstream and location configs
+- Deploys the nginx location config (proxies to the container by name through Docker's resolver; removes the former static upstream file)
 
 ## Variables
 
@@ -24,7 +24,6 @@ Deploys the discogs-api-client proxy as a Docker container on `zelgray.work`, se
 | `discogs_api_client_base_url` | _(empty)_ | Public base URL (e.g. `https://zelgray.work/discogs`) |
 | `discogs_api_client_nginx_location` | `/discogs` | nginx subpath location prefix |
 | `discogs_api_client_nginx_custom_locations_path` | `{{ nginx_custom_locations_path }}` | Directory where the nginx location config is deployed |
-| `discogs_api_client_upstream_name` | `{{ discogs_api_client_container_name }}` | nginx upstream block name |
 
 ## Tags
 
