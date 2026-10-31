@@ -7,19 +7,17 @@
   become: yes
   tags: discogs-api-client
 
-- name: Copy sources to build context
-  ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../../sources"
+- name: Sync sources to build context
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../sources/"
     dest: "{{ discogs_api_client_data_path }}/src/"
-    mode: '0644'
-  become: yes
-  tags: discogs-api-client
-
-- name: Copy Dockerfile to build context
-  ansible.builtin.copy:
-    src: Dockerfile
-    dest: "{{ discogs_api_client_data_path }}/src/Dockerfile"
-    mode: '0644'
+    delete: yes
+    owner: no
+    group: no
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=.venv"
   become: yes
   tags: discogs-api-client
 

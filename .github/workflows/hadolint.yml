@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'ansible/roles/discogs-api-client/files/Dockerfile'
+      - 'sources/Dockerfile'
       - '.hadolint.yaml'
       - '.github/workflows/hadolint.yml'
 
@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Lint ansible/roles/discogs-api-client/files/Dockerfile
+      - name: Lint sources/Dockerfile
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
-          dockerfile: ansible/roles/discogs-api-client/files/Dockerfile
+          dockerfile: sources/Dockerfile
