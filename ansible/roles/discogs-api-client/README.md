@@ -4,8 +4,7 @@ Deploys the discogs-api-client proxy as a Docker container on `zelgray.work`, se
 
 ## What it does
 
-- Creates build context directory and copies `sources/` from the control machine
-- Copies `Dockerfile` from role `files/` into the build context
+- Creates build context directory and syncs `sources/` (including its `Dockerfile`) from the control machine
 - Builds the Docker image locally on the target host
 - Runs the container on the `active` Docker network with secrets injected as env vars
 - Deploys the nginx location config (proxies to the container by name through Docker's resolver; removes the former static upstream file)

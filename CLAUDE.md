@@ -23,6 +23,7 @@ discogs-api-client/
 │   ├── theme.css              # Shared dark theme + header/nav/table/modal/form/combo styles for all 5 pages
 │   ├── nav.js                 # Shared header: fetches OAuth status, renders sign-in button or page-switcher dropdown
 │   ├── combo.js               # Shared searchable dropdown widget, used by inventory.html/collection.html's filter bars
+│   ├── Dockerfile             # Python 3.12-slim image; build context is sources/
 │   └── requirements.txt       # App deps (httpx, starlette, uvicorn, oauthlib, itsdangerous, redis, PyYAML, python-dotenv)
 ├── ansible/
 │   ├── ansible.cfg            # inventory = inventories/zelgray.work, roles_path = roles
@@ -40,11 +41,10 @@ discogs-api-client/
 │           ├── defaults/main.yml
 │           ├── tasks/main.yml
 │           ├── handlers/main.yml
-│           ├── files/Dockerfile     # Python 3.12-slim image
 │           └── templates/
 │               └── nginx-location.conf.j2
 ├── requirements.txt           # Ansible/tooling: infisicalsdk, ansible-lint, yamllint, pre-commit
-├── requirements.yml           # Ansible collections: infisical.vault, community.docker
+├── requirements.yml           # Ansible collections: infisical.vault, community.docker, ansible.posix
 ├── pyproject.toml             # Package metadata + deps; ruff format quote-style = single
 ├── .pre-commit-config.yaml    # ruff + ruff-format hooks (sources/)
 └── install_dependencies.sh    # pip install + ansible-galaxy + infisical CLI (DNF)
@@ -90,7 +90,7 @@ OAuth access token/secret/username are **not** stored server-side — they live 
 
 ## Ansible Role (discogs-api-client)
 
-**Deploy flow:** copy `sources/` from control machine → copy `Dockerfile` from role `files/` → `docker_image` build → `docker_container` run → nginx location config.
+**Deploy flow:** sync `sources/` (with its `Dockerfile`) from control machine → `docker_image` build → `docker_container` run → nginx location config.
 
 **No git clone** — always deploys from local working copy.
 

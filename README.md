@@ -20,6 +20,7 @@ discogs-api-client/
 │   ├── theme.css              # Shared dark theme for all 5 pages
 │   ├── nav.js                 # Shared header: sign-in button / page-switcher dropdown
 │   ├── combo.js               # Shared searchable dropdown widget for inventory/collection filter bars
+│   ├── Dockerfile             # Image build (context is sources/)
 │   └── requirements.txt       # App Python dependencies
 ├── ansible/
 │   ├── ansible.cfg
@@ -144,3 +145,7 @@ Runs `ruff check` and `ruff format --check` on `sources/`. The same checks run i
 
 - Discogs API documentation: https://www.discogs.com/developers/
 - Discogs API Terms of Use: https://support.discogs.com/hc/articles/360009334593-API-Terms-of-Use
+
+## License
+
+[MIT](https://opensource.org/licenses/MIT)
