@@ -33,7 +33,7 @@ import re
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 import redis.asyncio as aioredis
@@ -78,6 +78,19 @@ if not SECRET_KEY:
     )
 
 REDIS_URL = os.environ.get('DISCOGS_REDIS_URL', '')
+
+
+def _redact_url(url: str) -> str:
+    """Return the URL with any password replaced by ``***``, safe to log."""
+    parts = urlsplit(url)
+    userinfo, at, host = parts.netloc.rpartition('@')
+    if not at or ':' not in userinfo:
+        return url
+    user = userinfo.partition(':')[0]
+    return urlunsplit(parts._replace(netloc=f'{user}:***@{host}'))
+
+
+REDIS_URL_SAFE = _redact_url(REDIS_URL)
 CACHE_TTL = (
     60 * 60 * 24 * 30
 )  # 30 days — release metadata (esp. artist/label ids) is effectively static
@@ -115,10 +128,11 @@ async def lifespan(app):
         _redis = aioredis.from_url(REDIS_URL)
         try:
             await _redis.ping()
-            logger.info('Connected to Redis cache at %s', REDIS_URL)
+            logger.info('Connected to Redis cache at %s', REDIS_URL_SAFE)
         except Exception:
             logger.warning(
-                'Could not reach Redis at %s — proceeding without caching', REDIS_URL
+                'Could not reach Redis at %s — proceeding without caching',
+                REDIS_URL_SAFE,
             )
             _redis = None
     else:
@@ -473,7 +487,7 @@ if __name__ == '__main__':
     else:
         print('  OAuth: set DISCOGS_CONSUMER_KEY + DISCOGS_CONSUMER_SECRET to enable')
     if REDIS_URL:
-        print(f'  Cache       → {REDIS_URL}')
+        print(f'  Cache       → {REDIS_URL_SAFE}')
     else:
         print('  Cache: set DISCOGS_REDIS_URL to cache release lookups')
     print()
